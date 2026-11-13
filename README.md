@@ -2,7 +2,7 @@
 
 独立的 DeepSeek Harness（DSH）插件集合。GitHub 公开仓库发布后，支持 **分享插件索引** 和 **分享单个安装包 URL**，不需要接收者克隆源码、自己编译，也不需要发布到 npm。
 
-> 当前工作区尚未配置 GitHub 远端；以下 OWNER/REPO 是占位符，不是已经上线的下载地址。这里新增的是发布配置，未创建仓库、上传代码或修改本机 DSH 插件配置。
+> 代码仓库：[liang2h/deepseek-diy](https://github.com/liang2h/deepseek-diy)。下列索引和安装包链接在相应 GitHub Actions 发布成功后生效；首次发布标签为 plugins-v1.0.0。
 
 ## 插件
 
@@ -22,7 +22,7 @@ Codex MCP 明确适配 **DSH 0.2.2-rc.2**；其他插件请查阅各自说明，
 发布工作流成功部署 GitHub Pages 后，分享：
 
 ```text
-https://OWNER.github.io/REPO/index.json
+https://liang2h.github.io/deepseek-diy/index.json
 ```
 
 接收者：
@@ -40,7 +40,7 @@ https://OWNER.github.io/REPO/index.json
 不启用“发现”也可以使用 Release 安装包，例如：
 
 ```text
-https://github.com/OWNER/REPO/releases/download/plugins-v1.0.0/dsh-codex-mcp-1.2.1.tgz
+https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.0.0/dsh-codex-mcp-1.2.1.tgz
 ```
 
 接收者在 DSH 的插件安装入口粘贴该 URL，或向智能体发送：
@@ -91,7 +91,7 @@ git push origin plugins-v1.0.0
 本机也可只生成产物（不会上传）：
 
 ```sh
-pnpm release:prepare --repo OWNER/REPO --tag plugins-v1.0.0 --commit 完整40位提交SHA
+pnpm release:prepare --repo liang2h/deepseek-diy --tag plugins-v1.0.0 --commit 完整40位提交SHA
 ```
 
 产物位于 dist/release，索引站点位于 dist/site，均被 Git 忽略。具体参数校验、索引生成及包资源检查见 [发布逻辑](<scripts/release-lib.mjs>) 和 [发布入口](<scripts/prepare-release.mjs>)。
