@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Side Chat",
+    "description": "Private side questions with inherited model context, without session-list entries or main-history replay. Ask from the sidebar or selected text."
+  }
+}
