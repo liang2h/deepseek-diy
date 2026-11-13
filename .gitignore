@@ -1,0 +1,24 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+!.env.runtime.example
+!.env.app.example
+node_modules/
+**/target/
+**/dist/
+coverage/
+playwright-report/
+/output/playwright/
+test-results/
+.local/
+*.log
+.playwright-cli/
+__pycache__/
+.pytest_cache/
+.pnpm-store/
+*.tgz
+# Project-local MCP configuration can contain credentials.
+.codex/
+# Generated local review snapshots.
+dsh-codex-mcp/artifacts/
