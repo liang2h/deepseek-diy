@@ -1,0 +1,26 @@
+name: Check plugins
+on:
+  push:
+    branches: ['**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - name: Install locked dependencies without lifecycle scripts
+        run: |
+          for plugin in dsh-codex-mcp dsh-personalization dsh-side-chat; do
+            pnpm --dir "$plugin" install --frozen-lockfile --ignore-scripts
+          done
+      - run: pnpm build
+      - name: Require the committed client bundle to match its source
+        run: git diff --exit-code -- dsh-side-chat/client.bundle.js
+      - run: pnpm check
+      - run: pnpm test

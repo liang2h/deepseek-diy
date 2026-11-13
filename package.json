@@ -1,0 +1,15 @@
+{
+  "name": "deepseek-diy-plugins",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.28.5",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node dsh-side-chat/build-client.mjs",
+    "check": "node scripts/check-plugins.mjs",
+    "test": "node --test scripts/release.test.mjs",
+    "release:prepare": "node scripts/prepare-release.mjs"
+  }
+}

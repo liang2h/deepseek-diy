@@ -1,0 +1,82 @@
+name: Publish shareable plugins
+on:
+  push:
+    tags: ['plugins-v*']
+permissions:
+  contents: read
+concurrency:
+  group: plugin-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+      - name: Install locked dependencies without lifecycle scripts
+        run: |
+          for plugin in dsh-codex-mcp dsh-personalization dsh-side-chat; do
+            pnpm --dir "$plugin" install --frozen-lockfile --ignore-scripts
+          done
+      - run: pnpm build
+      - name: Require a committed client bundle
+        run: git diff --exit-code -- dsh-side-chat/client.bundle.js
+      - run: pnpm check
+      - run: pnpm test
+      - name: Prepare packages, index and sharing instructions
+        run: pnpm release:prepare --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --commit "$GITHUB_SHA"
+      - name: Check Pages configuration before publishing
+        uses: actions/configure-pages@v5
+      - name: Upload plugin index site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/site
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # A retry may reuse only an identical, complete release. Never overwrite published assets.
+            mkdir dist/existing
+            gh release download "$GITHUB_REF_NAME" --dir dist/existing \
+              --pattern '*.tgz' --pattern index.json --pattern SHARE.md --pattern SHA256SUMS
+            cmp dist/release/SHA256SUMS dist/existing/SHA256SUMS
+            (cd dist/existing && sha256sum -c SHA256SUMS)
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              dist/release/*.tgz dist/release/index.json dist/release/SHA256SUMS dist/release/SHARE.md \
+              --verify-tag --latest --title "$GITHUB_REF_NAME" --notes-file dist/release/SHARE.md
+          fi
+      - name: Refuse to redeploy an older release over the latest index
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: test "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" = "$GITHUB_REF_NAME"
+      - name: Deploy index to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Verify the published index without redirects
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {shareLinks} from './scripts/release-lib.mjs';
+          const url = shareLinks({repo: process.env.GITHUB_REPOSITORY,
+            tag: process.env.GITHUB_REF_NAME, commit: process.env.GITHUB_SHA}).index;
+          const response = await fetch(url, {redirect: 'error'});
+          assert.equal(response.status, 200);
+          const index = await response.json();
+          assert.equal(index.format, 1);
+          assert.equal(index.plugins.length, 4);
+          assert.ok(index.plugins.every(plugin => plugin.versions[0].source.commit === process.env.GITHUB_SHA));
+          console.log('Share this index URL: ' + url);
+          JS
