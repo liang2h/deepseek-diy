@@ -1,0 +1,77 @@
+# Synthetic credentials and hosts only. No user-home config was read.
+# The nine-server structure mirrors the confirmed five stdio/four HTTP entries.
+model = "example-model"
+approval_policy = "on-request"
+
+[mcp_servers.dms-mcp-server]
+command = "uvx"
+args = ["alibabacloud-dms-mcp-server@latest"]
+[mcp_servers.dms-mcp-server.env]
+ALIBABA_CLOUD_ACCESS_KEY_ID = "FAKE_PROD_ACCESS_KEY_ID"
+ALIBABA_CLOUD_ACCESS_KEY_SECRET = "FAKE_PROD_ACCESS_KEY_SECRET"
+[mcp_servers.dms-mcp-server.tools.executeScript]
+approval_mode = "approve"
+
+[mcp_servers.dms-mcp-server-test]
+command = "uvx"
+args = ["alibabacloud-dms-mcp-server@latest"]
+[mcp_servers.dms-mcp-server-test.env]
+ALIBABA_CLOUD_ACCESS_KEY_ID = "FAKE_TEST_ACCESS_KEY_ID"
+ALIBABA_CLOUD_ACCESS_KEY_SECRET = "FAKE_TEST_ACCESS_KEY_SECRET"
+
+[mcp_servers.observability_prod]
+command = "/example/.codex/bin/alibabacloud-observability-mcp-server.sh"
+args = ["start", "--stdio", "--config", "/example/.codex/observability/config.yaml"]
+startup_timeout_sec = 30.0
+[mcp_servers.observability_prod.env]
+ALIBABA_CLOUD_ACCESS_KEY_ID = "FAKE_OBSERVABILITY_PROD_ID"
+ALIBABA_CLOUD_ACCESS_KEY_SECRET = "FAKE_OBSERVABILITY_PROD_SECRET"
+[mcp_servers.observability_prod.tools.sls_text_to_sql]
+approval_mode = "approve"
+[mcp_servers.observability_prod.tools.sls_execute_sql]
+approval_mode = "approve"
+[mcp_servers.observability_prod.tools.sls_list_logstores]
+approval_mode = "approve"
+[mcp_servers.observability_prod.tools.sls_log_explore]
+approval_mode = "approve"
+
+[mcp_servers.observability_test]
+command = "/example/.codex/bin/alibabacloud-observability-mcp-server.sh"
+args = ["start", "--stdio", "--config", "/example/.codex/observability/config.yaml"]
+startup_timeout_sec = 30.0
+[mcp_servers.observability_test.env]
+ALIBABA_CLOUD_ACCESS_KEY_ID = "FAKE_OBSERVABILITY_TEST_ID"
+ALIBABA_CLOUD_ACCESS_KEY_SECRET = "FAKE_OBSERVABILITY_TEST_SECRET"
+
+[mcp_servers.yunxiao_devops]
+command = "npx"
+args = ["-y", "alibabacloud-devops-mcp-server"]
+[mcp_servers.yunxiao_devops.env]
+YUNXIAO_ACCESS_TOKEN = "FAKE_YUNXIAO_ACCESS_TOKEN"
+[mcp_servers.yunxiao_devops.tools.get_file_blobs]
+approval_mode = "approve"
+[mcp_servers.yunxiao_devops.tools.get_repository]
+approval_mode = "approve"
+
+[mcp_servers.codegraph]
+url = "https://codegraph.example.test/stream"
+startup_timeout_sec = 10.0
+tool_timeout_sec = 60.0
+
+[mcp_servers.codegraph_test]
+url = "https://codegraph-test.example.test/stream"
+startup_timeout_sec = 10.0
+tool_timeout_sec = 60.0
+
+[mcp_servers.engineering_context]
+url = "https://eng-mcp.example.test/mcp"
+
+[mcp_servers.agentlens]
+url = "https://agentlens.example.test/agentlens/mcp"
+enabled_tools = [
+  "k8s-mcp__execute_kubectl",
+  "k8s-mcp__list_environments",
+  "rocketmq-prod__RocketMQ-20220801-ListConsumerGroupSubscriptions",
+  "es-prod__search",
+  "redis-test__read_page",
+]
