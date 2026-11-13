@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git Workbench",
+    "description": "SourceTree-style Git sidebar: staging, diffs, commit graph, branches, remotes and stashes."
+  }
+}

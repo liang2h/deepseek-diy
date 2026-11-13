@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git 工作台",
+    "description": "类似 SourceTree 的 Git 右侧栏：暂存、差异、提交图、分支、远端同步与储藏管理。"
+  }
+}
