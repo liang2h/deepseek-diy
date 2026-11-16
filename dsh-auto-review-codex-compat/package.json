@@ -1,9 +1,9 @@
 {
   "name": "@local/dsh-auto-review-codex-compat",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Omit unsupported temperature only from Codex Auto review requests while preserving the authorization gate.",
+  "description": "Omit forced temperature from Auto review requests across every provider while preserving the authorization gate.",
   "engines": {"dsh": "0.2.2-rc.3"},
   "exports": {".": "./index.js", "./locale/*.json": "./locale/*.json", "./icon": "./icon.svg"},
   "files": ["index.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"],

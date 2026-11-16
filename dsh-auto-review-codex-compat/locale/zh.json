@@ -1,1 +1,1 @@
-{"meta":{"title":"Codex 自动审查兼容","description":"修复 DSH rc.3 的 Codex 自动审查不支持 temperature 报错。仅省略目标审查请求的温度参数，不更换模型、不关闭审查、不放行失败；普通对话保持原样。"}}
+{"meta":{"title":"自动审查参数兼容","description":"统一修复 DSH rc.3 所有 provider 和模型别名的自动审查 temperature 报错，不再仅匹配 Codex。审查使用提供方默认采样；保留模型、审查策略、严格判决与失败阻断，普通对话不变。已取代旧版 provider 白名单。"}}

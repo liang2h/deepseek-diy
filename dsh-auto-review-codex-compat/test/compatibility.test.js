@@ -2,8 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile, stat} from 'node:fs/promises';
 import {apply, compatibleReviewRequest} from '../index.js';
-
-const providers = new Set(['openai-codex']);
+import {markAgentLoopRequest, isAgentLoopRequest} from '@deepseek-ai/dsh-llm';
 const request = (extra = {}) => Object.freeze({provider: 'openai-codex', model: 'synthetic-model',
   purpose: 'auto-review', temperature: 0, system: 'SYNTHETIC_REVIEW_POLICY',
   messages: Object.freeze([]), sessionId: 'synthetic-session', ...extra});
@@ -12,7 +11,7 @@ test('omit only temperature without mutating frozen reviewer inputs or reference
   const controller = new AbortController();
   const original = request({signal: controller.signal, tools: Object.freeze([]), stop: Object.freeze(['STOP']),
     reasoningEffort: 'synthetic-effort', maxTokens: 128, extensionField: Object.freeze({keep: true})});
-  const clean = compatibleReviewRequest(original, providers);
+  const clean = compatibleReviewRequest(original);
   assert.notEqual(clean, original); assert.ok(Object.isFrozen(clean));
   assert.equal(Object.hasOwn(clean, 'temperature'), false);
   assert.equal(original.temperature, 0); assert.equal(Object.hasOwn(original, 'temperature'), true);
@@ -20,28 +19,44 @@ test('omit only temperature without mutating frozen reviewer inputs or reference
   assert.throws(() => { clean.provider = 'another-provider'; }, TypeError);
 });
 
-test('route and purpose are exact; model names, aliases and other auxiliary calls cannot broaden the fix', () => {
-  for (const extra of [{purpose: undefined}, {purpose: 'session-title'}, {purpose: 'AUTO-REVIEW'},
-    {provider: 'openai'}, {provider: 'custom-openai-codex'}, {provider: 'OpenAI-Codex'},
-    {provider: 'deepseek', model: 'openai-codex'}, {temperature: undefined}]) {
-    const original = request(extra);
-    assert.equal(compatibleReviewRequest(original, providers), original);
+test('all review routes and models use the same rule, without provider or model heuristics', () => {
+  for (const provider of ['openai-codex', 'openai', 'openai-responses', 'my-reasoner', 'new-unseen-route', 'deepseek', 'anthropic', 'google']) {
+    for (const temperature of [0, 0.5, 1, 2]) {
+      const original = request({provider, model: 'arbitrary-alias', temperature});
+      const clean = compatibleReviewRequest(original);
+      assert.equal(Object.hasOwn(clean, 'temperature'), false, `${provider}/${temperature}`);
+      assert.equal(clean.provider, provider); assert.equal(clean.model, original.model);
+      assert.equal(original.temperature, temperature);
+    }
   }
-  const alias = request({provider: 'explicit-codex-alias'});
-  assert.equal(compatibleReviewRequest(alias, providers), alias);
-  assert.equal(Object.hasOwn(compatibleReviewRequest(alias, new Set(['explicit-codex-alias'])), 'temperature'), false);
+});
+
+test('other purposes and already compatible requests retain exact identity across every route', () => {
+  for (const provider of ['openai-codex', 'openai', 'new-unseen-route', 'deepseek']) {
+    for (const extra of [{purpose: undefined}, {purpose: 'session-title'}, {purpose: 'AUTO-REVIEW'}, {temperature: undefined}]) {
+      const original = request({provider, ...extra});
+      assert.equal(compatibleReviewRequest(original), original);
+    }
+  }
+});
+
+test('marked loop inputs are never rewritten even if they carry the auxiliary purpose', () => {
+  const original = markAgentLoopRequest(request({provider: 'openai'}));
+  assert.equal(isAgentLoopRequest(original), true);
+  assert.equal(compatibleReviewRequest(original), original);
+  assert.equal(original.temperature, 0);
 });
 
 test('invalid temperatures retain validation failures rather than silently becoming a valid review', () => {
   for (const temperature of [null, '0', false, NaN, Infinity, -Infinity, -1, 3]) {
     const original = request({temperature});
-    assert.equal(compatibleReviewRequest(original, providers), original);
+    assert.equal(compatibleReviewRequest(original), original);
   }
 });
 
 test('the event receiver owns redispatch; one adapter path, no outer next, no swallowed failure', async () => {
   let handler;
-  apply({on(name, callback) {assert.equal(name, 'llm/stream'); handler = callback;}}, {providers: [...providers]});
+  apply({on(name, callback) {assert.equal(name, 'llm/stream'); handler = callback;}}, {providers: ['openai-codex']});
   const failure = Object.freeze({type: 'finish', reason: {kind: 'error', failure: {code: 'PI_AI_ERROR', message: 'synthetic error'}}});
   let redispatches = 0, adapters = 0, outerNext = 0;
   const terminal = (async function* () {yield failure;})();
