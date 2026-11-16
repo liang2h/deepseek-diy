@@ -10,5 +10,11 @@ for (const directory of PLUGINS) {
     if (/\.(?:js|mjs)$/.test(file)) execFileSync(process.execPath, ['--check', file], {cwd, stdio: 'inherit'});
   }
   const tests = (await readdir(path.join(cwd, 'test'))).filter(file => file.endsWith('.test.js'));
-  execFileSync(process.execPath, ['--test', ...tests.map(file => 'test/' + file)], {cwd, stdio: 'inherit'});
+  const env = {...process.env};
+  if (directory === 'dsh-next-input') {
+    // Its locked npm contract fixture must work without an ambient Desktop installation.
+    delete env.DSH_NODE_EXECUTABLE;
+    delete env.DSH_INSTALL_DIR;
+  }
+  execFileSync(process.execPath, ['--test', ...tests.map(file => 'test/' + file)], {cwd, env, stdio: 'inherit'});
 }

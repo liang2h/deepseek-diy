@@ -27,9 +27,10 @@ test('release parameters reject traversal, URLs, mutable refs and malformed tags
 test('format 1 index pins every real package and monorepo directory to a full commit', () => {
   const index = makeIndex(records, options, 1794555000);
   assert.equal(index.format, 1);
-  assert.equal(records.length, 6);
+  assert.equal(records.length, 7);
   assert.ok(records.some(record => record.directory === 'dsh-auto-review-codex-compat'));
   assert.ok(records.some(record => record.directory === 'dsh-diagrams'));
+  assert.ok(records.some(record => record.directory === 'dsh-next-input'));
   assert.equal(index.plugins.length, records.length);
   for (const [i, plugin] of index.plugins.entries()) {
     assert.equal(plugin.name, records[i].manifest.name);
@@ -53,6 +54,8 @@ test('index URL uses Pages rather than a redirecting GitHub release download', (
   assert.match(shareLinks(options).download, /\/releases\/download\/plugins-v1\.0\.0\/$/);
   const text = makeShareText(records, options);
   assert.ok(text.includes(shareLinks(options).index));
+  assert.ok(text.includes('额外辅助模型费用'));
+  assert.ok(text.includes('不自动发送或执行操作'));
   for (const record of records) {
     assert.ok(text.includes(shareLinks(options).download + record.filename));
     if (record.manifest.engines?.dsh)
@@ -125,7 +128,12 @@ for (const record of records) test('real tarball contains runtime exports, not l
     const actual = {name: pack.name, version: pack.version,
       files: files.filter(file => !file.endsWith('/')).map(file => ({path: file.slice('package/'.length)}))};
     validatePack(record.manifest, actual);
-    assert.deepEqual(new Set(actual.files.map(file => file.path)), new Set(pack.files.map(file => file.path)));
+    const actualPaths = new Set(actual.files.map(file => file.path));
+    if (record.directory === 'dsh-next-input') {
+      for (const name of ['core.js', 'suggestion-policy.js', 'diagnostics.js', 'version.js', 'client-state.js', 'remote-contract.js'])
+        assert.ok(actualPaths.has(name), 'Missing next-input runtime module: ' + name);
+    }
+    assert.deepEqual(actualPaths, new Set(pack.files.map(file => file.path)));
   } finally {
     // Only remove this exact, unique test-owned directory. Never accept a CLI cleanup path.
     assert.equal(path.dirname(directory), local);

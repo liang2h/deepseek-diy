@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "node dsh-side-chat/build-client.mjs && node dsh-diagrams/build-client.mjs",
+    "build": "node dsh-side-chat/build-client.mjs && node dsh-diagrams/build-client.mjs && node dsh-next-input/build-client.mjs",
     "check": "node scripts/check-plugins.mjs",
     "test": "node --test scripts/release.test.mjs",
     "release:prepare": "node scripts/prepare-release.mjs"

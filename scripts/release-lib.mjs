@@ -5,7 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('../', import.meta.url));
-export const PLUGINS = ['dsh-codex-mcp', 'dsh-git-manager', 'dsh-personalization', 'dsh-side-chat', 'dsh-auto-review-codex-compat', 'dsh-diagrams'];
+export const PLUGINS = ['dsh-codex-mcp', 'dsh-git-manager', 'dsh-personalization', 'dsh-side-chat', 'dsh-auto-review-codex-compat', 'dsh-diagrams', 'dsh-next-input'];
 
 export function releaseOptions({repo, tag, commit}) {
   assert.match(repo ?? '', /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/, 'repo must be OWNER/REPO');
@@ -63,6 +63,8 @@ export function shareLinks({repo, tag, commit}) {
 
 export function makeShareText(records, options) {
   const links = shareLinks(options);
+  const nextInputNotice = records.some(record => record.directory === 'dsh-next-input')
+    ? '下一轮输入建议可能产生额外辅助模型费用；建议只填入草稿，不自动发送或执行操作。\n' : '';
   const requirements = records.filter(record => record.manifest.engines?.dsh)
     .map(record => record.meta.title + ' 要求 DSH ' + record.manifest.engines.dsh).join('；');
   return '# DSH 插件安装与分享\n\n' +
@@ -74,7 +76,7 @@ export function makeShareText(records, options) {
     records.map(({meta, manifest, filename}) => '| ' + meta.title + ' | ' + manifest.version + ' | ' + links.download + filename + ' |').join('\n') +
     '\n\nGit 来源提交：' + options.commit + '\n\n' +
     '适配版本以各插件说明为准。' + (requirements ? requirements + '。' : '') +
-    '安装不会复制作者的个人设置、MCP 配置或 OAuth 凭据。升级后按 DSH 提示重启/刷新；不强制覆盖同名插件。\n';
+    '安装不会复制作者的个人设置、MCP 配置或 OAuth 凭据。升级后按 DSH 提示重启/刷新；不强制覆盖同名插件。\n' + nextInputNotice;
 }
 
 export function validatePack(manifest, pack) {
