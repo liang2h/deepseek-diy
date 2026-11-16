@@ -5,7 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('../', import.meta.url));
-export const PLUGINS = ['dsh-codex-mcp', 'dsh-git-manager', 'dsh-personalization', 'dsh-side-chat'];
+export const PLUGINS = ['dsh-codex-mcp', 'dsh-git-manager', 'dsh-personalization', 'dsh-side-chat', 'dsh-auto-review-codex-compat'];
 
 export function releaseOptions({repo, tag, commit}) {
   assert.match(repo ?? '', /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/, 'repo must be OWNER/REPO');
@@ -63,6 +63,8 @@ export function shareLinks({repo, tag, commit}) {
 
 export function makeShareText(records, options) {
   const links = shareLinks(options);
+  const requirements = records.filter(record => record.manifest.engines?.dsh)
+    .map(record => record.meta.title + ' 要求 DSH ' + record.manifest.engines.dsh).join('；');
   return '# DSH 插件安装与分享\n\n' +
     '## 推荐：插件发现页\n\n启用“自定义插件索引”，在“插件 → 发现 → 添加索引源”（已有源时选“管理索引源…”）中添加：\n\n' +
     '\x60\x60\x60text\n' + links.index + '\n\x60\x60\x60\n\n' +
@@ -71,7 +73,8 @@ export function makeShareText(records, options) {
     '| 插件 | 版本 | 安装包 URL |\n| --- | --- | --- |\n' +
     records.map(({meta, manifest, filename}) => '| ' + meta.title + ' | ' + manifest.version + ' | ' + links.download + filename + ' |').join('\n') +
     '\n\nGit 来源提交：' + options.commit + '\n\n' +
-    '适配版本以各插件说明为准；Codex MCP 当前要求 DSH 0.2.2-rc.2。安装不会复制作者的个人设置、MCP 配置或 OAuth 凭据。升级后按 DSH 提示重启/刷新；不强制覆盖同名插件。\n';
+    '适配版本以各插件说明为准。' + (requirements ? requirements + '。' : '') +
+    '安装不会复制作者的个人设置、MCP 配置或 OAuth 凭据。升级后按 DSH 提示重启/刷新；不强制覆盖同名插件。\n';
 }
 
 export function validatePack(manifest, pack) {

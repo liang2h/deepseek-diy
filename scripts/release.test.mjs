@@ -27,7 +27,9 @@ test('release parameters reject traversal, URLs, mutable refs and malformed tags
 test('format 1 index pins every real package and monorepo directory to a full commit', () => {
   const index = makeIndex(records, options, 1794555000);
   assert.equal(index.format, 1);
-  assert.equal(index.plugins.length, 4);
+  assert.equal(records.length, 5);
+  assert.ok(records.some(record => record.directory === 'dsh-auto-review-codex-compat'));
+  assert.equal(index.plugins.length, records.length);
   for (const [i, plugin] of index.plugins.entries()) {
     assert.equal(plugin.name, records[i].manifest.name);
     assert.equal(plugin.title, records[i].meta.title);
@@ -50,7 +52,11 @@ test('index URL uses Pages rather than a redirecting GitHub release download', (
   assert.match(shareLinks(options).download, /\/releases\/download\/plugins-v1\.0\.0\/$/);
   const text = makeShareText(records, options);
   assert.ok(text.includes(shareLinks(options).index));
-  for (const record of records) assert.ok(text.includes(shareLinks(options).download + record.filename));
+  for (const record of records) {
+    assert.ok(text.includes(shareLinks(options).download + record.filename));
+    if (record.manifest.engines?.dsh)
+      assert.ok(text.includes(record.meta.title + ' 要求 DSH ' + record.manifest.engines.dsh));
+  }
 });
 
 test('packed resource validation rejects missing exports and private configuration', () => {
@@ -80,13 +86,13 @@ test('release CLI prepares an isolated tagged checkout and refuses overwrite or 
     const run = () => execFileSync(process.execPath, args, {cwd: directory, encoding: 'utf8', stdio: 'pipe'});
     run();
     const out = path.join(directory, 'dist/release');
-    assert.equal((await readdir(out)).filter(file => file.endsWith('.tgz')).length, 4);
+    assert.equal((await readdir(out)).filter(file => file.endsWith('.tgz')).length, records.length);
     const indexText = await readFile(path.join(out, 'index.json'), 'utf8');
     assert.equal(await readFile(path.join(directory, 'dist/site/index.json'), 'utf8'), indexText);
     const index = JSON.parse(indexText);
     assert.ok(index.plugins.every(plugin => plugin.versions[0].source.commit === commit));
     const sums = (await readFile(path.join(out, 'SHA256SUMS'), 'utf8')).trim().split('\n');
-    assert.equal(sums.length, 6); // Four packages, index and sharing instructions.
+    assert.equal(sums.length, records.length + 2); // All packages, index and sharing instructions.
     assert.ok(sums.some(line => line.endsWith('  SHARE.md')));
     for (const line of sums) {
       const [expected, filename] = line.split('  ');

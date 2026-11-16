@@ -25,7 +25,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - name: Install locked dependencies without lifecycle scripts
         run: |
-          for plugin in dsh-codex-mcp dsh-personalization dsh-side-chat; do
+          for plugin in dsh-codex-mcp dsh-personalization dsh-side-chat dsh-auto-review-codex-compat; do
             pnpm --dir "$plugin" install --frozen-lockfile --ignore-scripts
           done
       - run: pnpm build
@@ -69,14 +69,21 @@ jobs:
         run: |
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
-          import {shareLinks} from './scripts/release-lib.mjs';
+          import {pluginRecords, shareLinks} from './scripts/release-lib.mjs';
           const url = shareLinks({repo: process.env.GITHUB_REPOSITORY,
             tag: process.env.GITHUB_REF_NAME, commit: process.env.GITHUB_SHA}).index;
           const response = await fetch(url, {redirect: 'error'});
           assert.equal(response.status, 200);
           const index = await response.json();
           assert.equal(index.format, 1);
-          assert.equal(index.plugins.length, 4);
-          assert.ok(index.plugins.every(plugin => plugin.versions[0].source.commit === process.env.GITHUB_SHA));
+          const records = await pluginRecords();
+          assert.equal(index.plugins.length, records.length);
+          for (const record of records) {
+            const plugin = index.plugins.find(plugin => plugin.name === record.manifest.name);
+            assert.ok(plugin, 'Missing plugin: ' + record.manifest.name);
+            assert.equal(plugin.versions[0].version, record.manifest.version);
+            assert.equal(plugin.versions[0].source.path, record.directory);
+            assert.equal(plugin.versions[0].source.commit, process.env.GITHUB_SHA);
+          }
           console.log('Share this index URL: ' + url);
           JS
