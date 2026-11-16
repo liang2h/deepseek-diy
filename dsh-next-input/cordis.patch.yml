@@ -1,0 +1,4 @@
+- insert:
+    - id: local-next-input
+      name: '@local/dsh-next-input'
+      config: {}

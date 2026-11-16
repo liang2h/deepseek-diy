@@ -1,0 +1,26 @@
+{
+  "name": "@local/dsh-next-input",
+  "version": "1.0.3",
+  "private": true,
+  "type": "module",
+  "description": "Conservative next-turn input suggestions above the DSH composer, without overwriting drafts or auto-sending.",
+  "engines": {"dsh": ">=0.2.2-rc.3 <0.3.0"},
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.bundle.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["index.js", "core.js", "suggestion-policy.js", "diagnostics.js", "version.js", "client.js", "client-state.js", "remote-contract.js", "client.bundle.js", "build-client.mjs", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"],
+  "scripts": {"build": "node build-client.mjs", "test": "node --test test/*.test.js"},
+  "dependencies": {"zod": "4.6.6", "@deepseek-ai/schemastery": "3.19.0"},
+  "devDependencies": {"esbuild": "0.28.2"},
+  "dsh": {
+    "bundle": {"patch": "./cordis.patch.yml"},
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-api-remotes", "@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-conversation"]
+    }
+  }
+}
