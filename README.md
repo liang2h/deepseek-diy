@@ -12,7 +12,7 @@
 | Git 工作台 | 1.0.3 | [右侧栏 Git 管理](<dsh-git-manager/README.md>) |
 | 个性化 | 1.0.0 | [当前 profile 的统一个性化指令](<dsh-personalization/README.md>) |
 | 侧边聊天 | 2.2.0 | [继承主会话上下文的私有问答](<dsh-side-chat/README.md>) |
-| 下一轮输入建议 | 1.0.3（尚未发布） | [有明确缺口时自动显示下一轮建议，点击填入但不发送](<dsh-next-input/README.md>) |
+| 下一轮输入建议 | 1.0.5（尚未发布） | [有明确缺口时自动显示下一轮建议，点击填入但不发送](<dsh-next-input/README.md>) |
 | Mermaid 图表 | 1.0.0（尚未发布） | [聊天中的 Mermaid 图表可视化](<dsh-diagrams/README.md>) |
 | 自动审查参数兼容 | 1.1.0（尚未发布） | [省略所有审查路由的强制 temperature，保留权限门禁](<dsh-auto-review-codex-compat/README.md>) |
 
