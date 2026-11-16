@@ -1,11 +1,9 @@
-// Isolated integration against the installed Cordis/Typert/Gateway, no DOM,
+// Isolated integration against pinned npm Cordis/Typert/Gateway, no DOM,
 // no personal Sessions, sockets, credentials, or paid model calls.
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
-import path from 'node:path';
+import {requireRuntime as require} from './npm-runtime.mjs';
 import {clientContribution, requestSuggestion} from '../remote-contract.js';
 import {canOffer, suggestionText} from '../client-state.js';
-const require = createRequire(path.join(process.env.DSH_INSTALL_DIR, 'package.json'));
 const {Context} = require('@deepseek-ai/cordis');
 const registry = require('@deepseek-ai/dsh-typert-registry/client');
 const gateway = require('@deepseek-ai/dsh-api-gateway/client');
@@ -57,7 +55,7 @@ try {
   answer = {ok: true, value: ready};
   const abort = new AbortController(); abort.abort();
   await assert.rejects(requestSuggestion(scope, 42, abort.signal), error => error.code === 'cancelled');
-  console.log('Installed Gateway integration passed: scoped identity, RemoteResult unwrapping, ready/no-gap display, failures, payload validation, stale and cancelled replies.');
+  console.log('npm Gateway Client integration passed: scoped identity, RemoteResult unwrapping, ready/no-gap display, failures, payload validation, stale and cancelled replies.');
 } finally {
   await root.fiber.dispose();
 }

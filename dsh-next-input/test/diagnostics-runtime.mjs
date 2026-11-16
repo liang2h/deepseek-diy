@@ -1,12 +1,16 @@
 // Exercise the exact native validator used by Host/Client Inspect registration.
 // Only fixture state is queried: no sockets, personal Session data or model calls.
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
+import {requireRuntime as require} from './npm-runtime.mjs';
 import {installHostDiagnostics, installClientDiagnostics} from '../diagnostics.js';
 import {initialState} from '../core.js';
 import {VERSION} from '../version.js';
-const require = createRequire(process.env.DSH_INSTALL_DIR + '/package.json');
 const {assertSupportedJsonSchema, validateJsonSchemaValue} = require('@deepseek-ai/dsh-tools');
+// Negative controls retain the native subset boundary (the original regression).
+for (const keyword of ['minLength', 'maxLength']) {
+  assert.throws(() => assertSupportedJsonSchema({type: 'string', [keyword]: 1}), error => error.code === 'UNSUPPORTED_SCHEMA');
+}
+assert.ok(validateJsonSchemaValue({type: 'integer'}, 'not-a-number', 'input').length > 0);
 const registrations = [];
 const ctx = {inject(_dependencies, callback) {callback(ctx);}, effect(callback) {callback();}, cordisInspect: {register(provider) {
   for (const method of provider.manifest.methods) {

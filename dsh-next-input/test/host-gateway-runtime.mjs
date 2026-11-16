@@ -1,8 +1,7 @@
 // Isolated real Host Gateway/Typert dispatch. Fixture-only Agent/Session and LLM:
 // no private Session, sockets, credentials, browser state, or paid model request.
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
-import path from 'node:path';
+import {requireRuntime as require} from './npm-runtime.mjs';
 import {NextInputService, remoteContribution} from '../index.js';
 import {initialState, reduceState, SYSTEM_PROMPT} from '../core.js';
 import {clientContribution, requestSuggestion} from '../remote-contract.js';
@@ -10,7 +9,6 @@ import {canOffer, suggestionText} from '../client-state.js';
 import {OPEN_ITEMS} from './fixtures/open-items.js';
 import {DEFERRED_RELEASE_ANSWER} from './fixtures/deferred-release.js';
 
-const require = createRequire(path.join(process.env.DSH_INSTALL_DIR, 'package.json'));
 const {Context} = require('@deepseek-ai/cordis');
 const {TypertRegistry} = require('@deepseek-ai/dsh-typert-registry');
 const {TypertGatewayService} = require('@deepseek-ai/dsh-api-gateway');
@@ -114,7 +112,7 @@ try {
     assert.match(release.suggestion, /发布|版本/); assert.match(release.suggestion, /确认/);
     assert.equal(calls.length, 1, 'deferred release preflight is not dropped or delayed by an LLM call');
   } finally {await clientRoot.fiber.dispose();}
-  console.log('Installed Host Gateway integration passed: strict Remote dispatch, shared cache, and screenshot open items through both gateways to the display selector without another model request.');
+  console.log('npm Host Gateway integration passed: strict Remote dispatch, shared cache, and screenshot open items through both gateways to the display selector without another model request.');
 } finally {
   await service.dispose();
   await root.fiber.dispose();

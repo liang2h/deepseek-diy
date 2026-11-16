@@ -37,16 +37,24 @@ pnpm build
 pnpm test
 ```
 
-Node.js 24+，pnpm 11.28.5。客户端使用 DSH 自带的 React 实例，不另外打包 React。开发构建依赖 esbuild；运行依赖 zod、schemastery。此插件尚未发布，没有已发布安装包或线上索引入口。
+Node.js 24+，pnpm 11.28.5。客户端使用 DSH 自带的 React 实例，不另外打包 React。开发构建依赖 esbuild；运行依赖 zod、schemastery。发布渠道为 [plugins-v1.2.0](https://github.com/liang2h/deepseek-diy/releases/tag/plugins-v1.2.0)；对应工作流成功后，可下载安装包或从[插件索引](https://liang2h.github.io/deepseek-diy/index.json)安装。
 
-测试覆盖纯投影、上下文截断、保守解析、单轮去重、调用结束状态、取消/过期结果、并发上限、空草稿与附件/编辑竞争保护。在 DSH 内运行时，还使用本机安装的 Cordis/Typert/Gateway 进行隔离集成测试，验证作用域身份绑定、真实 `RemoteResult` 封包解析、有建议/无缺口的展示选择及失败分支；该测试不打开浏览器、不读个人会话、不调用付费模型。离开 DSH 环境时该安装契约测试会显式跳过。
+测试覆盖纯投影、上下文截断、保守解析、单轮去重、调用结束状态、取消/过期结果、并发上限、空草稿与附件/编辑竞争保护。默认 `pnpm test` 还会在普通 Node.js 24 / Linux runner 上执行三项 npm 契约测试，**不因缺少 Desktop 或环境变量而跳过**：
+
+- Gateway Client：真实 Cordis/Typert/Gateway 的作用域身份绑定、`RemoteResult` 封包解析、有建议/无缺口的展示选择及失败分支。
+- Gateway Host：真实严格注册、参数校验、身份查找和 Host → Client → 展示选择器链路；保留未知字段、无效请求、缺失身份的拒绝断言。
+- Inspect schema：调用 SDK 导出的原生 `assertSupportedJsonSchema` / `validateJsonSchemaValue` 校验 Host/Client 声明、输入和输出，并验证不支持的 schema 关键词仍被拒绝。
+
+依赖来自 public npm：四个直接 DSH SDK 开发依赖精确固定为 `0.2.2-rc.3`，Cordis 为 `4.1.0`；锁文件固定传递依赖和完整性摘要。测试递归检查所有可达 DSH 依赖/peer 均为该 rc.3，且共享同一 Cordis 模块，Client 使用已发布的 Node export。缺失或版本/来源不一致会失败，不回退到全局包或 Desktop。测试子进程使用当前 `process.execPath`，清除继承的 `DSH_*`、`NODE_PATH` 和 `ELECTRON_RUN_AS_NODE`；不需要 `DSH_NODE_EXECUTABLE` 或 `DSH_INSTALL_DIR`。
+
+仅连接既有的 fixture Agent/Session、内存 RPC 与固定模型响应；Gateway 与原生 schema 校验器不做 mock，不打开 socket/浏览器、不读个人会话或 profile、不调用生产模型。以上是 **npm SDK 隔离契约测试，不是 GUI 或真实 Desktop 安装验收**。
 
 不把槽位注册成功或隔离集成测试等同于真实页面验收；没有浏览器控制时，仍需人工检查明暗主题、真实模型判断及点击流程。
 
 ## 1.0.5 诊断兼容
 
 - 修复 Inspect 声明使用当前 DSH 不支持的 `minLength/maxLength` 导致诊断注册失败的问题；会话身份长度改在处理器内校验。
-- 回归加入实际安装的 DSH 原生 schema 校验器，验证 Host/Client 的声明、输入和返回值。推荐策略与投影版本（4）不变。
+- 回归使用固定 DSH `0.2.2-rc.3` npm SDK 的原生 schema 校验器，验证 Host/Client 的声明、输入和返回值。推荐策略与投影版本（4）不变。
 
 ## 1.0.4 下一阶段操作
 
