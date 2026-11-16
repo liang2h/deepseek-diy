@@ -1,0 +1,4 @@
+- insert:
+    - id: local-dsh-diagrams
+      name: '@local/dsh-diagrams'
+      config: {}

@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "图表可视化",
+    "description": "将聊天中标记为 mermaid 或 mmd 的代码块显示为层次清晰的图表。支持时序图、流程图等 Mermaid 图形，提供源码切换、缩放、适应宽度和长图展开，跟随浅色/深色主题。生成中保留源码；语法错误可查看原因并重试。图表在本机页面渲染，不使用外部图表服务；忽略图内主题配置，不启用外部图片、链接或回调。适配 DSH 0.2.2-rc.3。"
+  },
+  "ui": {
+    "diagram": "图表", "source": "源码", "fit": "适宽", "fitTitle": "适应容器宽度", "zoomIn": "放大", "zoomOut": "缩小", "reset": "重置为 100%", "expand": "展开", "collapse": "收起", "retry": "重试",
+    "loading": "正在排版图表…", "streaming": "代码生成中，完成后自动显示图表。", "failed": "暂时无法绘制图表", "invalid": "请检查 Mermaid 语法；原始代码已保留。", "empty": "图表内容为空。", "tooLarge": "图表超出安全渲染限制，请拆分为较小的图表。", "customStyle": "图表采用插件统一主题，暂不支持 classDef / style / linkStyle 自定义 CSS。请移除这些语句后重试。", "unsupportedMetadata": "为避免外部图片或图标请求，暂不支持 @{…} 形状元数据。请改用 A[节点] 等传统节点语法。", "externalAsset": "此图包含被禁用的资源语法或不安全的样式。请移除图片、外部资源引用及样式注入后重试。", "hint": "宽图可横向滚动；长图可展开阅读。", "vector": "Mermaid · 矢量图", "sourceHint": "原始代码保持不变", "sequence": "时序图", "flowchart": "流程图", "class": "类图", "state": "状态图", "er": "关系图", "gantt": "甘特图", "pie": "饼图", "mindmap": "思维导图", "timeline": "时间线", "git": "Git 分支图", "journey": "旅程图", "chart": "坐标图", "block": "块图", "architecture": "架构图", "sankey": "桑基图", "quadrant": "象限图"
+  }
+}

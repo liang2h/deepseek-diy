@@ -1,0 +1,3 @@
+# Preserve generated dependency code and upstream license text byte-for-byte.
+client.bundle.js whitespace=-blank-at-eol
+THIRD_PARTY_NOTICES.md whitespace=-blank-at-eol
