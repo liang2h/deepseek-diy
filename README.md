@@ -2,18 +2,19 @@
 
 独立的 DeepSeek Harness（DSH）插件集合。GitHub 公开仓库发布后，支持 **分享插件索引** 和 **分享单个安装包 URL**，不需要接收者克隆源码、自己编译，也不需要发布到 npm。
 
-> 代码仓库：[liang2h/deepseek-diy](https://github.com/liang2h/deepseek-diy)。下列索引和安装包链接在相应 GitHub Actions 发布成功后生效；首次发布标签为 plugins-v1.0.0。
+> 代码仓库：[liang2h/deepseek-diy](https://github.com/liang2h/deepseek-diy)。下列索引和安装包链接在相应 GitHub Actions 发布成功后生效；本次发布标签为 plugins-v1.1.0，首版 plugins-v1.0.0 的资产保持可用。
 
 ## 插件
 
 | 插件 | 当前版本 | 使用说明 |
 | --- | --- | --- |
-| Codex 项目 MCP | 1.2.1 | [项目级 MCP 配置、按需工具与 OAuth](<dsh-codex-mcp/README.md>) |
+| Codex 项目 MCP | 1.2.3 | [项目级 MCP 配置、按需工具与 OAuth](<dsh-codex-mcp/README.md>) |
 | Git 工作台 | 1.0.3 | [右侧栏 Git 管理](<dsh-git-manager/README.md>) |
 | 个性化 | 1.0.0 | [当前 profile 的统一个性化指令](<dsh-personalization/README.md>) |
 | 侧边聊天 | 2.2.0 | [继承主会话上下文的私有问答](<dsh-side-chat/README.md>) |
+| Codex 自动审查兼容 | 1.0.0 | [仅省略目标审查请求的 temperature，保留权限门禁](<dsh-auto-review-codex-compat/README.md>) |
 
-Codex MCP 明确适配 **DSH 0.2.2-rc.2**；其他插件请查阅各自说明，不能据此保证任意新旧 DSH 版本兼容。
+Codex MCP 1.2.3 和自动审查兼容插件 1.0.0 明确适配 **DSH 0.2.2-rc.3**；其他插件请查阅各自说明，不能据此保证任意新旧 DSH 版本兼容。
 
 ## 如何分享给其他人
 
@@ -33,14 +34,14 @@ https://liang2h.github.io/deepseek-diy/index.json
 
 索引入口稳定，每次新发布更新其内容；每个插件的实际 Git 来源固定到完整提交 SHA，并用子目录路径定位。安装仍需联网获取 Git 仓库和声明的依赖，不是离线安装。
 
-**注意：**DSH 0.2.2-rc.2 的索引只支持 npm / Git 来源，不支持压缩包来源；索引请求拒绝重定向，不能把通常会重定向的 GitHub Release 下载 URL 当索引 URL。
+**注意：**本项目的索引使用固定提交的 Git 来源，不把压缩包当索引安装来源；索引地址应直接返回 JSON、不发生重定向，不能使用通常会重定向的 GitHub Release 下载 URL。
 
 ### 方式二：分享单个安装包
 
 不启用“发现”也可以使用 Release 安装包，例如：
 
 ```text
-https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.0.0/dsh-codex-mcp-1.2.1.tgz
+https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.1.0/dsh-codex-mcp-1.2.3.tgz
 ```
 
 接收者在 DSH 的插件安装入口粘贴该 URL，或向智能体发送：
@@ -49,7 +50,7 @@ https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.0.0/dsh-cod
 
 不在 URL 后追加查询参数。安装由 DSH 原生插件管理器处理；不要直接把源码复制进 DSH 安装目录。遇到同名包或升级提示时，按管理器要求操作，不自动移除已有配置。安装后可能需要重启 DSH 或刷新页面。
 
-每次 Release 会附带 4 个安装包、索引快照、SHA256SUMS，以及可直接转发的 SHARE.md；完整安装链接也写入 Release 正文。压缩包不包含 node_modules，运行依赖仍由 DSH 的包管理器下载。
+本次 Release 会附带 5 个安装包、索引快照、SHA256SUMS，以及可直接转发的 SHARE.md；完整安装链接也写入 Release 正文。压缩包不包含 node_modules，运行依赖仍由 DSH 的包管理器下载。
 
 ## 作者首次配置
 
@@ -68,6 +69,7 @@ https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.0.0/dsh-cod
 pnpm --dir dsh-codex-mcp install --frozen-lockfile --ignore-scripts
 pnpm --dir dsh-personalization install --frozen-lockfile --ignore-scripts
 pnpm --dir dsh-side-chat install --frozen-lockfile --ignore-scripts
+pnpm --dir dsh-auto-review-codex-compat install --frozen-lockfile --ignore-scripts
 pnpm build
 pnpm check
 pnpm test
@@ -78,8 +80,8 @@ Git 工作台没有额外依赖。开发依赖安装不执行生命周期脚本�
 确认代码已提交、已推送，且检查通过后发布：
 
 ```sh
-git tag plugins-v1.0.0
-git push origin plugins-v1.0.0
+git tag plugins-v1.1.0
+git push origin plugins-v1.1.0
 ```
 
 该标签是本插件集合的一次发布编号，独立于每个插件自身版本。后续发版需提升已变更插件自己的版本，并使用新的集合标签；不要移动旧标签或重用已发布插件版本。
@@ -91,7 +93,7 @@ git push origin plugins-v1.0.0
 本机也可只生成产物（不会上传）：
 
 ```sh
-pnpm release:prepare --repo liang2h/deepseek-diy --tag plugins-v1.0.0 --commit 完整40位提交SHA
+pnpm release:prepare --repo liang2h/deepseek-diy --tag plugins-v1.1.0 --commit 完整40位提交SHA
 ```
 
 产物位于 dist/release，索引站点位于 dist/site，均被 Git 忽略。具体参数校验、索引生成及包资源检查见 [发布逻辑](<scripts/release-lib.mjs>) 和 [发布入口](<scripts/prepare-release.mjs>)。
