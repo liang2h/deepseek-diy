@@ -1,0 +1,1 @@
+{"meta":{"title":"Codex Auto review compatibility","description":"Fix unsupported temperature on Codex Auto review in DSH rc.3. Omits only that auxiliary request parameter; preserves the model, authorization decisions, failures and ordinary conversations."}}

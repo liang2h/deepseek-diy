@@ -1,0 +1,4 @@
+- insert:
+    - id: auto-review-codex-compat
+      name: '@local/dsh-auto-review-codex-compat'
+      config: {}
