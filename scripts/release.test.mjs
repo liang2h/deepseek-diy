@@ -27,8 +27,9 @@ test('release parameters reject traversal, URLs, mutable refs and malformed tags
 test('format 1 index pins every real package and monorepo directory to a full commit', () => {
   const index = makeIndex(records, options, 1794555000);
   assert.equal(index.format, 1);
-  assert.equal(records.length, 5);
+  assert.equal(records.length, 6);
   assert.ok(records.some(record => record.directory === 'dsh-auto-review-codex-compat'));
+  assert.ok(records.some(record => record.directory === 'dsh-diagrams'));
   assert.equal(index.plugins.length, records.length);
   for (const [i, plugin] of index.plugins.entries()) {
     assert.equal(plugin.name, records[i].manifest.name);

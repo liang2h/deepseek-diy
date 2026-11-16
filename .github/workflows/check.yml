@@ -16,11 +16,11 @@ jobs:
       - uses: pnpm/action-setup@v4
       - name: Install locked dependencies without lifecycle scripts
         run: |
-          for plugin in dsh-codex-mcp dsh-personalization dsh-side-chat dsh-auto-review-codex-compat; do
+          for plugin in dsh-codex-mcp dsh-personalization dsh-side-chat dsh-auto-review-codex-compat dsh-diagrams; do
             pnpm --dir "$plugin" install --frozen-lockfile --ignore-scripts
           done
       - run: pnpm build
-      - name: Require the committed client bundle to match its source
-        run: git diff --exit-code -- dsh-side-chat/client.bundle.js
+      - name: Require the committed client bundles to match their sources
+        run: git diff --exit-code -- dsh-side-chat/client.bundle.js dsh-diagrams/client.bundle.js
       - run: pnpm check
       - run: pnpm test
