@@ -51,4 +51,4 @@ pnpm --dir dsh-diagrams test
 
 [客户端产物](<client.bundle.js>)应与源码一起分发。无安装脚本及生产运行依赖；第三方代码已打包，许可证原文及源码获取声明见 [THIRD_PARTY_NOTICES.md](<THIRD_PARTY_NOTICES.md>)。其中 ELK/elkjs 0.12.1 的对应源码和构建脚本可从 [elkjs 0.12.1](https://github.com/kieler/elkjs/tree/624ae90aa37110033a8af59c5ccbb292708b4317) 与 [ELK v0.12.1](https://github.com/eclipse-elk/elk/tree/3aa3b9fb98d8f9a41285b3061cff5efe79ed2ba4) 获取；各第三方组件的许可证仅适用于其各自代码。
 
-在 DSH 的插件安装入口选择本目录，或让智能体调用 `plugin_manager install_bundle` 安装绝对路径。安装影响当前 profile 的全部会话；以管理器的 `application` 和 `warnings` 为准，必要时刷新或重启。尚未发布到仓库现有 Release。
+在 DSH 的插件安装入口选择本目录，或让智能体调用 `plugin_manager install_bundle` 安装绝对路径。安装影响当前 profile 的全部会话；以管理器的 `application` 和 `warnings` 为准，必要时刷新或重启。发布渠道为 [plugins-v1.2.0](https://github.com/liang2h/deepseek-diy/releases/tag/plugins-v1.2.0)；对应工作流成功后，可下载安装包或从[插件索引](https://liang2h.github.io/deepseek-diy/index.json)安装。
