@@ -21,4 +21,4 @@ __pycache__/
 # Project-local MCP configuration can contain credentials.
 .codex/
 # Generated local review snapshots.
-dsh-codex-mcp/artifacts/
+dsh-*/artifacts/
