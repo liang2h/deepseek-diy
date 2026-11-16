@@ -1,3 +1,4 @@
+import {VERSION} from '../version.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile, stat} from 'node:fs/promises';
@@ -15,6 +16,13 @@ test('built browser artifact registers one lazy factory under the exact package 
   assert.equal(registrations.length, 1);
   assert.equal(registrations[0].id, '@local/dsh-next-input');
   assert.equal(typeof registrations[0].factory, 'function');
+});
+
+test('manifest, code marker and generated Client artifact share the same release revision', async () => {
+  const manifest = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
+  const artifact = await readFile(new URL('client.bundle.js', root), 'utf8');
+  assert.equal(manifest.version, VERSION);
+  assert.ok(artifact.includes(JSON.stringify(VERSION)), 'Rebuild the browser artifact when changing the code revision.');
 });
 
 test('all explicit exported resources exist and remain inside the bundle directory', async () => {

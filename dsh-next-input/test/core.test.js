@@ -1,4 +1,5 @@
 import {OPEN_ITEMS} from './fixtures/open-items.js';
+import {DEFERRED_RELEASE_ANSWER} from './fixtures/deferred-release.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {LIMITS, DEFAULT_CONFIG, normalizeConfig, bytes, cutText, textOf, initialState, reduceState,
@@ -136,6 +137,15 @@ test('a fresh final open-items answer remains eligible after compaction retires 
   assert.doesNotMatch(buildInput(state), /compressed context/);
 });
 
+test('a finalized deferred downstream operation remains eligible without the retired first task', () => {
+  let state = completed();
+  state = reduceState(state, event('turn/start', {turn: 2}, 4));
+  state = reduceState(state, {...event('user/message', {}, 5), surfaceOp: {op: 'replace', startSeq: 1, endSeq: 3}});
+  state = reduceState(state, event('assistant/message', {turn: 2, message: msg('assistant', DEFERRED_RELEASE_ANSWER)}, 6));
+  state = reduceState(state, event('turn/end', {turn: 2, reason: {kind: 'completed'}}, 7));
+  assert.equal(state.firstTask, ''); assert.equal(state.view.eligible, true);
+});
+
 test('out-of-turn completion cannot revive an old assistant cursor', () => {
   let state = reduceState(completed(), event('turn/start', {turn: 2}, 4));
   state = reduceState(state, event('assistant/message', {turn: 1, message: msg('assistant', 'late old response')}, 5));
@@ -168,7 +178,7 @@ test('serialized JSON input budget accounts for escapes and keeps latest respons
   }
 });
 test('fixed prompt explicitly rejects offers, unnecessary tests, choices and embedded instructions', () => {
-  for (const pattern of [/local-next-input\/v2/, /untrusted background data/, /casual offer/, /unnecessary additional testing/, /Never choose an option/, /Default to hasGap:false/]) assert.match(SYSTEM_PROMPT, pattern);
+  for (const pattern of [/local-next-input\/v3/, /untrusted background data/, /casual offer/, /unnecessary additional testing/, /Never choose an option/, /Default to hasGap:false/]) assert.match(SYSTEM_PROMPT, pattern);
 });
 test('request and config validation reject ambiguous identities and unbounded controls', () => {
   assert.deepEqual(requestObject({endSeq: 12}), {endSeq: 12});

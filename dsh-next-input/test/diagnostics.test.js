@@ -31,6 +31,19 @@ test('Host diagnostics prove loaded version without revealing excerpts or trigge
   r.cleanup(); assert.equal(r.disposed, true);
 });
 
+test('explicit diagnostics can inspect an already resident Session without opening or resuming it', async () => {
+  const r = registryContext(), caller = {session: {id: 'caller'}, status: 'running'};
+  const target = {session: {id: 'target'}, status: 'idle'}, state = initialState({}), lookedUp = [];
+  const service = {ctx: {get(name) {assert.equal(name, 'agents'); return {get(id) {lookedUp.push(id); return id === 'target' ? target : undefined;}, resume() {throw new Error('Must not resume');}};}},
+    cache: new Map(), running: new Map(), cacheKey: () => 'key'};
+  installHostDiagnostics(r.ctx, service, {stateOf: session => {assert.equal(session, target.session); return state;}});
+  const present = await r.provider.query('status', {sessionId: 'target'}, {...queryContext(), agent: caller});
+  assert.equal(present.available, true); assert.equal(present.agentStatus, 'idle');
+  const missing = await r.provider.query('status', {sessionId: 'missing'}, {...queryContext(), agent: caller});
+  assert.equal(missing.available, false); assert.equal(missing.reason, 'not-resident');
+  assert.deepEqual(lookedUp, ['target', 'missing']); r.cleanup();
+});
+
 test('diagnostics remain optional and fail promptly on cancellation', async () => {
   const missing = registryContext(false);
   installHostDiagnostics(missing.ctx, {}, {}); assert.equal(missing.provider, undefined);
@@ -51,6 +64,8 @@ test('Client diagnostics report only mounted-view flags and cannot override the 
   assert.equal(current.reason, 'permission-blocked'); assert.doesNotMatch(JSON.stringify(current), /private/);
   const absent = await r.provider.query('status', {}, {...queryContext(), sessionId: 'not-mounted'});
   assert.equal(absent.mounted, false); assert.equal(absent.openState, 'unmounted');
+  const explicit = await r.provider.query('status', {sessionId: 'shown'}, {...queryContext(), sessionId: 'not-mounted'});
+  assert.equal(explicit.mounted, true, 'Explicit identity addresses a known report only, never a new view.');
   assert.deepEqual(Object.keys(absent).sort(), Object.keys(r.provider.manifest.methods[0].outputSchema.properties).sort());
   r.cleanup();
 });

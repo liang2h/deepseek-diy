@@ -8,6 +8,7 @@ import {initialState, reduceState, SYSTEM_PROMPT} from '../core.js';
 import {clientContribution, requestSuggestion} from '../remote-contract.js';
 import {canOffer, suggestionText} from '../client-state.js';
 import {OPEN_ITEMS} from './fixtures/open-items.js';
+import {DEFERRED_RELEASE_ANSWER} from './fixtures/deferred-release.js';
 
 const require = createRequire(path.join(process.env.DSH_INSTALL_DIR, 'package.json'));
 const {Context} = require('@deepseek-ai/cordis');
@@ -99,6 +100,19 @@ try {
     assert.equal(suggestionText({visible, key: 'round-2', reply: {key: 'round-2', ...followup}}), followup.suggestion);
     assert.match(followup.suggestion, /验证清单/); assert.match(followup.suggestion, /暂不继续访问受限环境/);
     assert.equal(calls.length, 1, 'explicit unresolved evidence does not depend on another LLM call');
+    for (const event of [
+      {type: 'turn/start', data: {turn: 3}, seq: 9},
+      {type: 'user/message', data: {role: 'user', source: {kind: 'user'}, content: [{type: 'text', text: '请提交并推送，本次不创建发布标签。'}]}, seq: 10},
+      {type: 'assistant/message', data: {turn: 3, message: {role: 'assistant', content: [{type: 'text', text: DEFERRED_RELEASE_ANSWER}]}}, seq: 11},
+      {type: 'turn/end', data: {turn: 3, reason: {kind: 'completed'}}, seq: 12},
+    ]) state = reduceState(state, event);
+    const release = await requestSuggestion(scope, 12);
+    assert.equal(release.status, 'ready'); assert.equal(release.reason, 'deferred-release');
+    const releaseVisible = canOffer({cursor: state.view, session: {openState: 'open', running: false, pendingSubmissions: []},
+      input: {phase: 'plain', draft: '', attachmentIds: []}});
+    assert.equal(suggestionText({visible: releaseVisible, key: 'round-3', reply: {key: 'round-3', ...release}}), release.suggestion);
+    assert.match(release.suggestion, /发布|版本/); assert.match(release.suggestion, /确认/);
+    assert.equal(calls.length, 1, 'deferred release preflight is not dropped or delayed by an LLM call');
   } finally {await clientRoot.fiber.dispose();}
   console.log('Installed Host Gateway integration passed: strict Remote dispatch, shared cache, and screenshot open items through both gateways to the display selector without another model request.');
 } finally {

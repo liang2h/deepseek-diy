@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-next-input",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "private": true,
   "type": "module",
   "description": "Conservative next-turn input suggestions above the DSH composer, without overwriting drafts or auto-sending.",

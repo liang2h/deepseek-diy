@@ -1,4 +1,4 @@
-import {explicitFollowup, followupSuppressed} from './suggestion-policy.js';
+import {localFollowup, followupSuppressed, workflowSuggestionExcluded} from './suggestion-policy.js';
 import {PROJECTION_VERSION} from './version.js';
 import {installHostDiagnostics} from './diagnostics.js';
 import Schema from '@deepseek-ai/schemastery';
@@ -69,10 +69,10 @@ export class NextInputService {
     if (followupSuppressed(state)) {
       const result = reply(endSeq, 'none', 'intentional-stop'); this.remember(session, result); return result;
     }
-    // Strong explicit open-item sections use a safe, non-executing local
-    // planning template. They must not disappear because an auxiliary model
-    // interprets a completed TODO list or a permission denial as task closure.
-    const local = explicitFollowup(state);
+    // Explicit evidence gaps AND unfinished downstream operations use safe,
+    // non-executing local planning templates. Completing this turn is not the
+    // same as closing the workflow or authorizing the next operation.
+    const local = localFollowup(state);
     if (local) {const result = {endSeq, ...local}; this.remember(session, result); return result;}
     let flight = this.running.get(session);
     if (flight && (flight.endSeq !== endSeq || flight.turn !== turn)) {this.cancel(session); return reply(endSeq, 'none', 'busy');}
@@ -132,7 +132,9 @@ export class NextInputService {
       const parsed = invalid ? {suggestion: null, status: 'error', reason: 'invalid-output'}
         : finish?.kind !== 'stop' ? {suggestion: null, status: 'error', reason: 'non-stop-finish'} : parseSuggestion(text);
       if (!this.current(agent, session, endSeq, turn)) return reply(endSeq, 'stale', 'cursor-changed');
-      const result = {endSeq, ...parsed}; this.remember(session, result); return result;
+      const result = parsed.status === 'ready' && workflowSuggestionExcluded(state, parsed.suggestion)
+        ? reply(endSeq, 'none', 'workflow-excluded') : {endSeq, ...parsed};
+      this.remember(session, result); return result;
     } catch {
       if (!this.current(agent, session, endSeq, turn) || (signal.aborted && signal.reason !== 'timeout')) return reply(endSeq, 'stale', 'cursor-changed');
       const result = reply(endSeq, 'error', signal.reason === 'timeout' ? 'timeout' : 'generation-failed');

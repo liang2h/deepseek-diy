@@ -1,4 +1,4 @@
-import {explicitFollowup} from './suggestion-policy.js';
+import {localFollowup} from './suggestion-policy.js';
 export {PROMPT_VERSION, SYSTEM_PROMPT} from './suggestion-policy.js';
 
 // Bounded, committed recent text only: this is not a complete replay/audit log.
@@ -93,8 +93,8 @@ export function reduceState(state, event) {
     eligible: event.seq >= state.inheritedEventCount && event.data.reason?.kind === 'completed'
       && event.data.turn === state.activeTurn && event.data.turn === state.lastAssistantTurn
       // Compaction can retire the original human excerpt. A new finalized
-      // answer with explicit open items still supports a safe planning input.
-      && (!!state.firstTask || explicitFollowup(state) !== null)})};
+      // answer with open items or a deferred next stage still supports a safe planning input.
+      && (!!state.firstTask || localFollowup(state) !== null)})};
   return state;
 }
 /** JSON data, not chat instructions. The exact serialized payload also respects the byte budget. */

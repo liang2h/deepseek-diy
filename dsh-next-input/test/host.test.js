@@ -1,4 +1,5 @@
 import {OPEN_ITEMS} from './fixtures/open-items.js';
+import {DEFERRED_RELEASE_ANSWER} from './fixtures/deferred-release.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {apply, Config, NextInputService, projectionDefinition, remoteContribution, stateSchema, viewSchema} from '../index.js';
@@ -61,7 +62,7 @@ const generate = (service, agent, signal) => service.generate(agent, {endSeq: 3}
 test('projection uses strict real Zod schemas, JSON state and tiny stable wire', () => {
   const definition = projectionDefinition(); const state = initialState({});
   assert.deepEqual(stateSchema.parse(state), state);
-  assert.equal(definition.stateVersion, 3); assert.equal(state.firstTaskSeq, -1);
+  assert.equal(definition.stateVersion, 4); assert.equal(state.firstTaskSeq, -1);
   const legacyState = {...state}; delete legacyState.firstTaskSeq;
   assert.throws(() => stateSchema.parse(legacyState), 'version-1 checkpoint state must not be reused as version 2');
   assert.deepEqual(Object.keys(definition.wire.view(state)).sort(), ['eligible', 'endSeq', 'turn']);
@@ -105,6 +106,44 @@ test('explicit unresolved evidence gets a safe local next input without a model 
   assert.equal(r.calls.length, 0);
   assert.deepEqual(await generate(service, agent), result);
   await service.dispose();
+});
+
+test('finished development with an explicit unperformed release yields preflight instead of silent closure', async () => {
+  const r = runtime(), agent = r.agent(), state = r.states.get(agent.session);
+  state.recent.find(item => item.role === 'user').text = '请分批提交并推送，本次不创建发布标签。';
+  state.recent[state.recent.length - 1].text = DEFERRED_RELEASE_ANSWER;
+  agent.session.requestHeader = () => undefined;
+  const service = new NextInputService(r.ctx, r.projection);
+  const result = await generate(service, agent);
+  assert.equal(result.status, 'ready'); assert.equal(result.reason, 'deferred-release');
+  assert.match(result.suggestion, /发布|版本/); assert.match(result.suggestion, /确认/);
+  assert.doesNotMatch(result.suggestion, /我(?:已)?授权|直接发布|立即创建/);
+  assert.equal(r.calls.length, 0); await service.dispose();
+});
+
+test('an auxiliary model cannot reopen globally forbidden or already closed release work', async () => {
+  for (const [user, answer] of [
+    ['不要发布，也不要创建标签。', DEFERRED_RELEASE_ANSWER],
+    ['正常处理当前改动。', `${DEFERRED_RELEASE_ANSWER}\n发布流程已关闭，不再发布。`],
+    ['正常处理当前改动。', `${DEFERRED_RELEASE_ANSWER}\n当前结果：已打标签并推送，发布流程已完成。`],
+  ]) {
+    const r = runtime({stream: response(JSON.stringify({hasGap: true, suggestion: '请检查发布前置条件并给出发布计划。'}))});
+    const agent = r.agent(), state = r.states.get(agent.session);
+    state.recent.find(item => item.role === 'user').text = user;
+    state.recent[state.recent.length - 1].text = answer;
+    const service = new NextInputService(r.ctx, r.projection), result = await generate(service, agent);
+    assert.equal(result.status, 'none'); assert.equal(result.reason, 'workflow-excluded');
+    assert.equal(r.calls.length, 1); await service.dispose();
+  }
+});
+
+test('workflow output guard does not blanket-block an unrelated evidence request', async () => {
+  const r = runtime({stream: response(JSON.stringify({hasGap: true, suggestion: '请补充所需证据清单和验证标准。'}))});
+  const agent = r.agent(), state = r.states.get(agent.session);
+  state.recent.find(item => item.role === 'user').text = '不要发布，也不要创建标签。';
+  state.recent[state.recent.length - 1].text = DEFERRED_RELEASE_ANSWER;
+  const service = new NextInputService(r.ctx, r.projection), result = await generate(service, agent);
+  assert.equal(result.status, 'ready'); assert.equal(r.calls.length, 1); await service.dispose();
 });
 
 test('an explicit user stop suppresses follow-up even when the result lists unresolved facts', async () => {
