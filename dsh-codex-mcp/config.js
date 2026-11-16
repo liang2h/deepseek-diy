@@ -200,7 +200,7 @@ export function parseProjectConfig(text) {
   return { servers: Object.entries(servers).map(([name, value], index) => normalizeServer(name, value, index)) };
 }
 
-/** Exact naming algorithm reverified in installed DSH 0.2.2-rc.2 dsh-mcp-client bridge. */
+/** Exact naming algorithm reverified in installed DSH 0.2.2-rc.3 dsh-mcp-client bridge. */
 export function publicToolName(server, raw) {
   const joined = `mcp__${server}__${raw}`;
   const normalized = joined.replace(/[^A-Za-z0-9_-]/g, '_');

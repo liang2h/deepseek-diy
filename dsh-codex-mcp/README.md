@@ -1,6 +1,6 @@
 # Codex 项目 MCP
 
-独立 DSH 插件（Host 业务逻辑 + 轻量 Client 菜单显示层）：读取当前项目的 `.codex/config.toml`，为每个 Agent 建立独立 MCP 连接，支持 stdio、Streamable HTTP、OAuth、原始工具名白名单及逐工具审批。当前 1.2.1 针对 DSH **0.2.2-rc.2** 和 MCP Client SDK **2.2.0** 开发验证；不修改 DSH 核心文件或 agent preset；菜单显示采用下述限定版本兼容适配。
+独立 DSH 插件（Host 业务逻辑 + 轻量 Client 菜单显示层）：读取当前项目的 `.codex/config.toml`，为每个 Agent 建立独立 MCP 连接，支持 stdio、Streamable HTTP、OAuth、原始工具名白名单及逐工具审批。当前 1.2.3 针对 DSH **0.2.2-rc.3** 和 MCP Client SDK **2.2.0** 开发验证；不修改 DSH 核心文件或 agent preset；菜单显示采用下述限定版本兼容适配。
 
 ## 首次使用
 
@@ -52,7 +52,7 @@
 
 - 默认每个 Agent 同时最多 8 个 MCP 工具，完整 `{name, description, parameters}` JSON 的 UTF-8 总预算 64 KiB。超过预算、重复或不可用名称会整体拒绝，不部分加载、不破坏原工作集；线上的协议包装和其他插件上下文不计入这个预算。
 - `when` 使用精确 Agent 身份、当前项目/指纹/信任代际、成功日志回执以及当前工具内容签名共同判定。只设置 `deferLoading` 不会激活工具，因此插件不靠该标记隐藏目录，而由原生工具更新机制处理实际 addition/removal。未激活工具在 Schema、原生执行与 PTC admission 中都不可调用。
-- 激活只发生在原生成功 `tool/result` 提交后的**下一个模型步骤**。同批次或同一个 PTC 程序中刚 load 后立即调用此前未 admission 的工具仍不可用。没有最终成功日志的取消、失败或未完成加载不恢复选择。
+- 激活只发生在原生成功 `tool/result` 或 PTC 成功 `tool/ptc-dispatch` 回执提交后的**下一个模型步骤**。同批次或同一个 PTC 程序中刚 load 后立即调用此前未 admission 的工具仍不可用。没有最终成功日志的取消、失败或未完成加载不恢复选择。
 - 使用原生 `sessionProjections` 折叠配对调用/结果，whole-value 回执放在公开 `output.presentationMeta` 中，不从可能截断的正文猜状态，不新增 Session 事件，也不遍历 deprecated 日志 API。同 ID 日志重建恢复选择；新 ID fork 不继承工具激活。
 - 断线/重连或 `reload` 只恢复当前有效绑定下、签名完全相同的已选工具，不重放业务调用。新名称和同名但签名已变的工具需要重新发现并加载。观察到新的配置指纹后旧 grant 失效；未运行期间发生又恢复的字节变化无法仅凭当前文件检测。
 - 显式 untrust/retrust 即使指纹相同也创建新的非秘密授权代际，旧加载回执不复活。logout 保留项目指纹信任，但旋转**项目级**激活代际：该项目各 Agent 的全部旧工作集需重新 load，不仅限于退出的服务器。
@@ -80,7 +80,7 @@ Client 为原有菜单行补充单色连接图标、中文标题“项目 MCP”
 
 **保留全部带参数命令。** Host 注册、input hint、参数解析、执行 handler 和人类授权边界均不改变，`/codex-mcp login agentlens` 等原有用法照常。不会注册第二个同名 Client 命令、添加重复候选或替换输入 source。
 
-侧边聊天确实通过原生 Client contribution 实现了同类展示，不需要改 DSH 核心；此前将第三方完整样式归结为必须修改框架，是过于绝对的判断。但该方式不能与同名 Host 参数命令直接并存。本版本按用户要求保留 Host 参数入口，采用**已重新核验 DSH 0.2.2-rc.2 的 Client 兼容适配**：封装当前实现的候选生成函数，只为 name、hint、description 均匹配的本插件行补充展示字段。它不是官方稳定的 Host 行装饰 API，升级 DSH 后须重新核验；没有修改核心文件、私有目录/注册表、参数 claim 或执行路径。
+侧边聊天确实通过原生 Client contribution 实现了同类展示，不需要改 DSH 核心；此前将第三方完整样式归结为必须修改框架，是过于绝对的判断。但该方式不能与同名 Host 参数命令直接并存。本版本按用户要求保留 Host 参数入口，采用**已重新核验 DSH 0.2.2-rc.3 的 Client 兼容适配**：封装当前实现的候选生成函数，只为 name、hint、description 均匹配的本插件行补充展示字段。它不是官方稳定的 Host 行装饰 API，升级 DSH 后须重新核验；没有修改核心文件、私有目录/注册表、参数 claim 或执行路径。
 
 适配失败、接口不匹配或属性不可配置时，保留原生行和原有命令功能；其他行的对象与顺序不变，不新增 RPC、不重新查询。中文标题仅用于展示，搜索仍沿用原命令名和原生筛选/排序，未新增中文命令别名。正常卸载恢复原方法和词典，进行中的请求卸载后不再装饰；若之后有第三方另行包装相同方法，本插件仅将自身层失活，不强行拆除对方包装。
 
@@ -158,7 +158,7 @@ enabled_tools = ["upstream__example_read"]
 
 修复 `stage=credential_write, reason=credential_store` 的一项已复现原因：官方 SDK 的 discovery state 等 JS 对象允许可选字段显式为 `undefined`，但 DSH 文件凭据存储要求 payload 无损 JSON 往返。插件现在在每个 OAuth 记录写入边界递归省略对象中的 `undefined` 可选字段，同时保留 issuer、客户端信息和 token 数据；不将不合法数字、类实例、循环或数组中的 `undefined` 静默改成其他值。
 
-回归测试使用真实 `@deepseek-ai/dsh-credentials-local@0.2.2-rc.2` 与隔离临时文件，覆盖发现/无 scope 认证挑战的登录记录保存，以及官方 SDK 授权码交换、刷新、重新打开存储和退出。旧内存测试也增加了严格 JSON 往返校验。不会读取或清空用户真实凭据。此修复不保证其他磁盘权限或 I/O 问题也已排除。
+回归测试使用真实 `@deepseek-ai/dsh-credentials-local@0.2.2-rc.3` 与隔离临时文件，覆盖发现/无 scope 认证挑战的登录记录保存，以及官方 SDK 授权码交换、刷新、重新打开存储和退出。旧内存测试也增加了严格 JSON 往返校验。不会读取或清空用户真实凭据。此修复不保证其他磁盘权限或 I/O 问题也已排除。
 
 ## 范围与验证边界
 
@@ -206,8 +206,25 @@ pnpm test
 
 迁移核对包括安装版本的 `session-append-overloads`、`runtime-context-reminders`、`plugin-update-method` 和 `window-drag-regions` 指南。本插件不替换 `Session.append`、不按文本解析 runtime-context、不读取 `BundleInfo.updatable`、不创建覆盖页头的浮层，故这些 API 无需业务改动；新增批量日志回归验证相关边界。跳过账户通知/Remote、worktree、附件/CUA、Forge、终端、搜索计费和子 Agent 默认配置指南，因为插件没有消费这些扩展面。开发已使用替代旧开发技能的 `dsh-doc`。
 
+### 1.2.2：DSH 0.2.2-rc.3 兼容迁移
+
+- 当前目标仅为 **DSH 0.2.2-rc.3**。所有 DSH peer/dev 依赖和实际解析到的运行包都已切换到 rc.3；不使用版本豁免，不宣称兼容未来未经测试的 DSH 版本。每次 DSH 预发布版本升级后仍须重新核验，而非重复安装旧包或直接删除兼容检查。
+- 已检查当前安装的升级索引：其中最新章节仍为 `v0.2.2-rc.1`，**没有 rc.2 → rc.3 专项迁移指南**。因此没有套用或虚构其他版本的指南，而是核对当前 `tools.register({when})`、执行准入、`output.presentationMeta`、`sessionProjections.register/stateOf/checkpoint` 的公开契约，以及 Client 命令源码和构建产物。早于当前起点的指南不重复作为本次迁移依据。
+- 真实 rc.3 环境完整回归 **179/179 通过**，覆盖渐进加载、授权与撤权、官方 SDK stdio/HTTP、隔离文件凭据、OAuth、恢复/fork 和参数菜单。[兼容性测试](<test/compatibility.test.js>) 继续严格检查依赖实际版本，并增强 checkpoint 副本隔离断言：修改返回行不得篡改活跃工具签名或退还累计 instructions 预算。
+- 240 工具的回环 MCP 与真实 DSH 请求管线重新测量：unsupported、addition-only、in-history 三种路径首轮都只有 **1 个管理 Schema / HTTP JSON 1425 字节**，与上表相同。生产业务逻辑、激活回执及 stateVersion 3 保持不变，不重写用户配置、日志或凭据。
+- Client 的候选原型方法仍可按现有方式受控装饰，原生参数入口继续保留，不注册同名 Client 命令。Client Inspect 单次超时；静态源码、原样 built 及隔离测试不等于真实 GUI 的视觉验收。本轮没有做实际菜单视觉确认。
+
+### 1.2.3：修复 PTC load 后没有可调用绑定
+
+- 修复确定的日志契约错误：Native `tool/call.arguments` 为 JSON 字符串，真实 PTC `tool/ptc-dispatch-start` / `tool/ptc-dispatch` 的 `arguments` 则为 JSON 规范化后的对象。此前错误地共用字符串解析器，导致 PTC load 虽然成功并带有回执，投影仍不激活工具，下一步骤出现 `tools.mcp__… is not a function`。
+- 原有合成 PTC fixture 也错误使用 `JSON.stringify`，掩盖了问题。现已改为真实对象格式，分开校验 Native/PTC 输入；保留工具数量/名称/参数边界、root/parent/subCall 配对、成功回执、项目授权和 Schema 签名，不移除 `when`，不绕过权限。
+- 投影 `stateVersion` 升至 **4**。旧 v3 checkpoint 自动从原始日志重折，恢复当时已成功提交的 PTC 激活回执及累计 instructions 支出；不修改 Session 原始记录、配置或凭据。fork 仍只继承预算，不继承激活权限。
+- 新增[真实 PTC 回归](<test/progressive-ptc.test.js>)：回环模型 + 真实 AgentLoop/PTC executor/Node 子进程/官方 MCP SDK。修复前实测 load 的 `isError:false`、对象 arguments 和两个 metadata 回执均存在，但下一步骤 binding 为 `undefined`；修复后 native→PTC、PTC→PTC、同程序不扩容/下一 step 生效、clear/revoke/retrust/重连/Schema 变化/fork/同 ID 日志恢复均通过。没有调用真实 CodeGraph 或其他生产端点。
+- 完整回归 **185/185 通过、0 跳过**，240 工具首轮测量仍为 1 个管理 Schema / HTTP JSON 1425 字节。PTC 测试保留真实只读系统沙箱；若外层沙箱禁止嵌套 Seatbelt，须在明确授权后从外层沙箱之外运行同一测试，不能降级或把 `sandbox-unavailable` 当作通过。
+- **PTC 使用顺序**：第一步调用 `tools.codex_mcp({action:'load',names:[目录返回的实际 name]})` 并结束当前模型工具步骤；下一模型步骤再访问全局 `tools[实际 name](参数)`。同一 `run_code`，乃至同一模型步骤内的多个 `run_code`，都不会临时扩容已固定的工具集合。不要猜名称或缓存旧 `tools` 对象。
+
 ### 安装升级
 
-仅通过 Plugin Manager 安装/升级本地目录或版本化 tarball，不手改活动 profile、核心文件或已安装模块。本次发布为 1.2.1；以管理器返回的保存状态、`application` 和 `nextStep` 区分“安装完成”与“当前进程已加载”。替换已导入的 Host 模块通常需要**完整退出并重开 DSH**，刷新网页或 `/codex-mcp reload` 不能清除 Node 模块缓存。旧会话历史不会因重启自动变小，请在新会话中验收首轮。
+仅通过 Plugin Manager 安装/升级本地目录或版本化 tarball，不手改活动 profile、核心文件或已安装模块。本次发布为 1.2.3；以管理器返回的保存状态、`application` 和 `nextStep` 区分“安装完成”与“当前进程已加载”。替换已导入的 Host 模块通常需要**完整退出并重开 DSH**，刷新网页或 `/codex-mcp reload` 不能清除 Node 模块缓存。旧会话历史不会因重启自动变小，请在新会话中验收首轮。
 
 图标为本插件原创 SVG；中英文插件标题/说明由 [中文资源](<locale/zh.json>) 和 [英文资源](<locale/en.json>) 提供。

@@ -49,6 +49,19 @@ function requestedNames(raw) {
   } catch { return undefined; }
 }
 
+// PTC records JSON-normalized argument VALUES, unlike native tool/call's JSON
+// string. Keep this flat and bounded to the public management input contract;
+// never recursively stringify an arbitrary logged value just to inspect names.
+const ptcLoadArguments = z.object({
+  action: z.literal('load'), names,
+  server: z.string().max(32).optional(), query: z.string().max(256).optional(),
+  offset: z.number().int().nonnegative().optional(), limit: z.number().int().min(1).max(100).optional(),
+}).strict();
+function requestedPtcNames(raw) {
+  const checked = ptcLoadArguments.safeParse(raw);
+  return checked.success ? checked.data.names : undefined;
+}
+
 function start(state, candidate) {
   const checked = pendingSchema.safeParse(candidate);
   if (!checked.success) return state;
@@ -61,7 +74,7 @@ function complete(state, kind, callId, data, successful) {
   const index = state.pending.findIndex(item => item.kind === kind && item.callId === callId);
   if (index < 0) return state;
   const pending = state.pending[index];
-  const completedNames = kind === 'ptc' ? requestedNames(data.arguments) : undefined;
+  const completedNames = kind === 'ptc' ? requestedPtcNames(data.arguments) : undefined;
   const paired = kind === 'native'
     ? data.turn === pending.turn && data.step === pending.step && data.message?.role === 'tool' && data.message?.source?.kind === 'tool' && data.message.source.callId === callId
     : data.name === 'codex_mcp' && data.rootCallId === pending.rootCallId && data.parentCallId === pending.parentCallId &&
@@ -86,7 +99,7 @@ function complete(state, kind, callId, data, successful) {
 export const activationProjection = {
   key: 'codexMcpActivation',
   stateSchema,
-  stateVersion: 3,
+  stateVersion: 4,
   init: (header, inheritedCount) => ({sessionId: header.id, inheritedCount, pending: [], activation: null, instructionsSpent: 0}),
   apply(state, event) {
     const data = event.data;
@@ -109,7 +122,7 @@ export const activationProjection = {
       return complete(state, 'native', data.message?.toolCallId, data, data.message?.isError !== true && data.error === undefined);
     }
     if (event.type === 'tool/ptc-dispatch-start' && data.name === 'codex_mcp') {
-      const requested = requestedNames(data.arguments);
+      const requested = requestedPtcNames(data.arguments);
       return requested === undefined ? state : start(state, {kind: 'ptc', callId: data.subCallId, rootCallId: data.rootCallId, parentCallId: data.parentCallId, names: requested});
     }
     if (event.type === 'tool/ptc-dispatch') {

@@ -7,7 +7,7 @@ test('distribution metadata includes original icon, localized titles and all run
   const root = new URL('..', import.meta.url);
   const manifest = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
-  assert.equal(manifest.engines.dsh, '0.2.2-rc.2');
+  assert.equal(manifest.engines.dsh, '0.2.2-rc.3');
   for (const [name, version] of Object.entries({...manifest.peerDependencies, ...manifest.devDependencies}))
     if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, manifest.engines.dsh, `${name} must test against the declared DSH release`);
   assert.equal(manifest.exports['./icon'], './icon.svg');

@@ -22,10 +22,10 @@ const result = (value = receipt(), callId = 'call-1', seq = 1, extra = {}, envel
 const fold = (...events) => events.reduce((state, item) => projection.apply(state, item), initial());
 const ptcStart = (selected = [first], seq = 0, extra = {}) => event('tool/ptc-dispatch-start', {
   rootCallId: 'root', parentCallId: 'parent', subCallId: 'opaque-sub-id', name: 'codex_mcp',
-  arguments: JSON.stringify({action: 'load', names: selected}), ...extra}, seq);
+  arguments: {action: 'load', names: selected}, ...extra}, seq);
 const ptcResult = (value = receipt(), seq = 1, extra = {}) => event('tool/ptc-dispatch', {
   rootCallId: 'root', parentCallId: 'parent', subCallId: 'opaque-sub-id', name: 'codex_mcp',
-  arguments: JSON.stringify({action: 'load', names: value.tools.map(tool => tool.name)}),
+  arguments: {action: 'load', names: value.tools.map(tool => tool.name)},
   isError: false, content: [], meta: {codexMcpActivation: value}, ...extra}, seq);
 
 test('activation is a whole replacement only after a paired successful native result', () => {
@@ -108,7 +108,8 @@ test('fork inherited prefix is ignored and owner session binding is exact', () =
 test('PTC uses exact opaque sub/root/parent IDs and strict successful completed receipts', () => {
   const start = projection.apply(initial(), ptcStart());
   for (const extra of [{subCallId: 'other'}, {rootCallId: 'other'}, {parentCallId: 'other'}, {name: 'another_tool'},
-    {arguments: JSON.stringify({action: 'load', names: [second]})}, {arguments: '{'}]) {
+    {arguments: {action: 'load', names: [second]}},
+    {arguments: JSON.stringify({action: 'load', names: [first]})}, {arguments: '{'}]) {
     assert.equal(projection.apply(start, ptcResult(receipt(), 1, extra)), start);
   }
   assert.deepEqual(projection.apply(start, ptcResult()).activation, receipt());
@@ -119,6 +120,22 @@ test('PTC uses exact opaque sub/root/parent IDs and strict successful completed 
   assert.deepEqual(fold(ptcStart([]), ptcResult(receipt([]))).activation.tools, []);
   assert.equal(fold(ptcStart(), result()).activation, null);
   assert.equal(fold(call(), ptcResult()).activation, null);
+});
+
+test('native JSON strings and PTC structured arguments are distinct bounded contracts', () => {
+  const args = {action: 'load', names: [first]};
+  assert.equal(fold(call([first], 'call-1', 0, {arguments: args}), result()).activation, null);
+  for (const invalid of [JSON.stringify(args), null, [], 'load', {action: 'tools', names: [first]},
+    {action: 'load'}, {...args, names: [first, first]}, {...args, names: Array(9).fill(first)},
+    {...args, names: ['x'.repeat(65)]}, {...args, query: 'x'.repeat(257)},
+    {...args, server: 'x'.repeat(33)}, {...args, offset: -1}, {...args, limit: 101},
+    {...args, unknown: {nested: true}}]) {
+    assert.equal(fold(ptcStart([first], 0, {arguments: invalid}), ptcResult()).activation, null);
+    assert.equal(fold(ptcStart(), ptcResult(receipt(), 1, {arguments: invalid})).activation, null);
+  }
+  const bounded = {...args, server: 'demo', query: 'local', offset: 0, limit: 1};
+  assert.deepEqual(fold(ptcStart([first], 0, {arguments: bounded}),
+    ptcResult(receipt(), 1, {arguments: bounded})).activation, receipt());
 });
 
 test('pending state is bounded, ambiguous duplicate IDs do not rewrite it, lifecycle markers clear it', () => {
@@ -156,7 +173,7 @@ test('real projection handle lazily folds synthetic sessions and checkpoint/tail
   assert.deepEqual(handle.stateOf(session).activation, receipt());
   assert.equal(handle.stateOf(session).instructionsSpent, 1024);
   const checkpoint = registry.checkpoint(session);
-  assert.equal(checkpoint[projection.key].ver, 3);
+  assert.equal(checkpoint[projection.key].ver, 4);
   assert.deepEqual(checkpoint[projection.key].val.activation, receipt());
   appendPair(session, [second], 'next', 3072);
   const all = session.snapshotEvents(); // Test-only reader; production projection never scans events.
@@ -282,6 +299,26 @@ test('inherited malformed, failed and replacement ledgers are ignored while PTC 
   assert.equal(lower, inherited);
 });
 
+test('version-three checkpoints refold real-shaped PTC loads and recover authority plus spent instructions', async t => {
+  const {registry, handle} = await registryFixture(t);
+  const session = Session.create('test-session');
+  session.append('tool/ptc-dispatch-start', ptcStart().data);
+  const completed = ptcResult().data;
+  completed.meta.codexMcpInstructions = {version: 1, sessionId: session.id, spentBytes: 4096};
+  session.append('tool/ptc-dispatch', completed);
+  session.append('step/end', {turn: 1, step: 1});
+  assert.deepEqual(handle.stateOf(session).activation, receipt());
+  assert.equal(handle.stateOf(session).instructionsSpent, 4096);
+  const checkpoint = registry.checkpoint(session);
+  // Version 3 skipped both object-valued PTC events and cached an empty state.
+  const old = {[projection.key]: {...checkpoint[projection.key], ver: 3, val: initial()}};
+  assert.equal(registry.restoreFloor(old), 0);
+  const restored = registry.restore(old, session.snapshotEvents(), SessionLogOffset(0), session.header, SessionLogOffset(0));
+  assert.equal(restored.checkpoint[projection.key].ver, 4);
+  assert.deepEqual(restored.checkpoint[projection.key].val.activation, receipt());
+  assert.equal(restored.checkpoint[projection.key].val.instructionsSpent, 4096);
+});
+
 test('version-two child checkpoints refold inherited budget floors instead of retaining zero', async t => {
   const {registry, handle} = await registryFixture(t);
   const parent = Session.create('test-session'); appendPair(parent, [first], 'ancestor-load', 8192);
@@ -295,7 +332,7 @@ test('version-two child checkpoints refold inherited budget floors instead of re
     val: {...checkpoint[projection.key].val, instructionsSpent: 0}}};
   assert.equal(registry.restoreFloor(old), 0);
   const restored = registry.restore(old, child.snapshotEvents(), SessionLogOffset(0), child.header, SessionLogOffset(parentEvents.length));
-  assert.equal(restored.checkpoint[projection.key].ver, 3);
+  assert.equal(restored.checkpoint[projection.key].ver, 4);
   assert.equal(restored.checkpoint[projection.key].val.instructionsSpent, 8192);
   assert.equal(restored.checkpoint[projection.key].val.activation, null);
 });

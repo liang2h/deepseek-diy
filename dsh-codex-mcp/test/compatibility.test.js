@@ -10,11 +10,11 @@ const {Context} = await load('@deepseek-ai/cordis');
 const {Session} = await load('@deepseek-ai/dsh-session');
 const {default: Projections} = await load('@deepseek-ai/dsh-session-projection');
 
-// Test the resolved packages, not only the edited manifest: a stale rc.1 test
-// environment must not be accepted as evidence for an rc.2 release.
-test('compatibility target and every resolved DSH test surface are exactly rc.2', async t => {
+// Test the resolved packages, not only the edited manifest: a stale earlier
+// environment must not be accepted as evidence for an rc.3 release.
+test('compatibility target and every resolved DSH test surface are exactly rc.3', async t => {
   const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
-  assert.equal(manifest.engines.dsh, '0.2.2-rc.2');
+  assert.equal(manifest.engines.dsh, '0.2.2-rc.3');
   const declared = {...manifest.peerDependencies, ...manifest.devDependencies};
   for (const [name, version] of Object.entries(declared)) {
     if (!name.startsWith('@deepseek-ai/dsh-')) continue;
@@ -31,7 +31,7 @@ test('compatibility target and every resolved DSH test surface are exactly rc.2'
   t.diagnostic(`All declared and transitive DSH test surfaces resolve to ${manifest.engines.dsh}.`);
 });
 
-test('rc.2 array Session.append preserves committed activation metadata and the instruction ledger', async t => {
+test('rc.3 array Session.append preserves committed activation metadata and the instruction ledger', async t => {
   const ctx = new Context(); new Projections(ctx);
   let handle;
   const owner = ctx.plugin({name: 'rc2-batch-projection', inject: ['sessionProjections'],
@@ -45,7 +45,7 @@ test('rc.2 array Session.append preserves committed activation metadata and the 
     ['tool/call', {turn: 1, step: 1, callId: id, name: 'codex_mcp', arguments: JSON.stringify({action: 'load', names})}],
     ['tool/result', {turn: 1, step: 1,
       message: {id: `result-${id}`, role: 'tool', source: {kind: 'tool', callId: id}, toolCallId: id,
-        content: [{type: 'text', text: 'Synthetic rc.2 successful completion.'}]},
+        content: [{type: 'text', text: 'Synthetic rc.3 successful completion.'}]},
       meta: {codexMcpActivation: receipt, codexMcpInstructions: {version: 1, sessionId: session.id, spentBytes}}},
     {surfaceOp: 'append'}],
   ];
@@ -53,6 +53,14 @@ test('rc.2 array Session.append preserves committed activation metadata and the 
   assert.equal(appended.length, 2);
   assert.deepEqual(handle.stateOf(session).activation, activation);
   assert.equal(handle.stateOf(session).instructionsSpent, 2048);
+  // rc.3 exposes detached checkpoint values. A cache consumer must not be
+  // able to rewrite the live authority or refund instructions through a row.
+  const checkpoint = ctx.sessionProjections.checkpoint(session);
+  checkpoint.codexMcpActivation.val.activation.tools[0].signature = 'c'.repeat(64);
+  checkpoint.codexMcpActivation.val.instructionsSpent = 0;
+  assert.deepEqual(handle.stateOf(session).activation, activation);
+  assert.equal(handle.stateOf(session).instructionsSpent, 2048);
+  assert.equal(ctx.sessionProjections.checkpoint(session).codexMcpActivation.val.instructionsSpent, 2048);
   session.append(input('rc2-clear', [], {...activation, tools: []}, 2048));
   assert.deepEqual(handle.stateOf(session).activation.tools, []);
   assert.equal(handle.stateOf(session).instructionsSpent, 2048, 'batch clear must not refund instructions');

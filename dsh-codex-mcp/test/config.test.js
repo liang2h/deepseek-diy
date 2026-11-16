@@ -280,7 +280,7 @@ test('raw-name filters apply explicit deny before allow and respect server enabl
 });
 
 test('public tool naming matches installed DSH bridge NUL-separated identity hashing', () => {
-  // Reconfirmed by Host read of dsh-mcp-client/lib/index.js:440-445 (0.2.2-rc.2).
+  // Reconfirmed by Host read of dsh-mcp-client/lib/index.js:440-445 (0.2.2-rc.3).
   assert.equal(publicToolName('server-name', 'raw_name'), 'mcp__server-name__raw_name');
   assert.equal(publicToolName('s', 'x'.repeat(56)).length, 64);
   for (const [server, raw] of [
