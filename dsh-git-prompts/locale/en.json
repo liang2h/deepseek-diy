@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git operation instructions",
+    "description": "Save commit and PR instructions under Settings → Git. Bodies are delivered only when preparing a Git operation, never as a standing system prompt. Active, nonempty commit rules require git_workbench commits to prepare in the same turn, directory and settings revision, then draft in a new model step. No automatic writes or approval bypass. Manual Workbench, arbitrary shell/gh and Forge paths are not automatically integrated."
+  }
+}
