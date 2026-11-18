@@ -247,13 +247,66 @@ test('settings update honors cancellation before approval and after approval, wi
   assert.deepEqual(during.writeAttempts, []);
 });
 
-test('validatePreparation accepts only commit/pr and safe absolute directories', () => {
-  for (const input of [{operation: 'commit'}, {operation: 'pr', repo: REPO}]) assert.equal(validatePreparation(input), input);
-  for (const input of [null, [], {}, {operation: 'push'}, {operation: 'commit', base: 'main'},
+test('validatePreparation accepts explicit commit/pr and safe absolute directories', () => {
+  for (const input of [{operation: 'commit'}, {operation: 'pr', repo: REPO}]) {
+    const result = validatePreparation(Object.freeze(input));
+    assert.deepEqual(result, input);
+    assert.notEqual(result, input, 'validation returns a canonical request without mutating the caller');
+  }
+  for (const input of [undefined, null, [], {operation: 'push'}, {operation: 'commit', base: 'main'},
     {operation: 'pr', repo: 'relative/path'}, {operation: 'commit', repo: 3},
     {operation: 'commit', repo: '/nul\0path'}, {operation: 'commit', repo: '/' + 'a'.repeat(4096)}]) {
     assert.throws(() => validatePreparation(input));
   }
+});
+
+test('omitting operation defaults to commit without changing the input object', () => {
+  for (const input of [{}, {repo: REPO}, {operation: undefined}]) {
+    const original = structuredClone(input);
+    Object.freeze(input);
+    assert.deepEqual(validatePreparation(input), {...original, operation: 'commit'});
+    assert.deepEqual(input, original);
+  }
+});
+
+test('an explicitly invalid operation or unknown field never silently defaults or reads Git', async () => {
+  for (const input of [{operation: null}, {operation: ''}, {operation: false}, {operation: 0},
+    {operation: 'push'}, {operation: 'PR'}, {operation: []}, {action: 'commit'}, {repo: 'relative'}]) {
+    const fixture = harness();
+    await assert.rejects(prepareOperation(fixture.ctx, fixture.projection, input, fixture.exec));
+    assert.deepEqual(fixture.gitCalls, []);
+    assert.deepEqual(fixture.deferred, []);
+    assert.deepEqual(fixture.writeAttempts, []);
+    assert.deepEqual(fixture.approvals, []);
+  }
+});
+
+test('empty preparation call loads only commit rules and still requires the next model step', async () => {
+  const fixture = harness({settings: {commitInstructions: RULES, prInstructions: 'DO_NOT_LOAD_PR_RULES'}});
+  fixture.call(['preparation-root']);
+  const result = await prepareOperation(fixture.ctx, fixture.projection, {}, fixture.exec);
+  assert.equal(result.operation, 'commit');
+  assert.equal(result.repo, REPO);
+  assert.deepEqual(fixture.gitCalls, [{action: 'summary', repo: REPO}, {action: 'diff', repo: REPO, staged: true}]);
+  assert.equal(fixture.deferred[0].source.operation, 'commit');
+  assert.ok(textOf(fixture.deferred[0]).includes(RULES));
+  assert.ok(!textOf(fixture.deferred[0]).includes('DO_NOT_LOAD_PR_RULES'));
+  fixture.deliver();
+  assertDenied(preparationDenial(fixture.ctx, fixture.projection, fixture.commit()));
+  fixture.nextStep(['commit-root']);
+  assert.equal(preparationDenial(fixture.ctx, fixture.projection, fixture.commit()), undefined);
+  assert.deepEqual(fixture.approvals, []);
+  assert.deepEqual(fixture.writeAttempts, []);
+});
+
+test('a preparation with only repo uses the same default commit operation', async () => {
+  const fixture = harness();
+  const result = await prepareOperation(fixture.ctx, fixture.projection, {repo: '/synthetic/explicit'}, fixture.exec);
+  assert.equal(result.operation, 'commit');
+  assert.equal(result.repo, '/synthetic/explicit');
+  assert.deepEqual(fixture.gitCalls, [{action: 'summary', repo: '/synthetic/explicit'}, {action: 'diff', repo: '/synthetic/explicit', staged: true}]);
+  assert.deepEqual(fixture.approvals, []);
+  assert.deepEqual(fixture.writeAttempts, []);
 });
 
 test('requestedDirectory uses the Session directory, normalizes it, and rejects relative paths', () => {

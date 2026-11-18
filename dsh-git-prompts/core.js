@@ -62,10 +62,14 @@ export async function performSettings(ctx, input, exec) {
 }
 
 export function validatePreparation(input) {
-  if (!plain(input) || !['commit', 'pr'].includes(input.operation)) throw new Error('operation must be commit or pr.');
+  if (!plain(input)) throw new Error('Preparation parameters must be an object.');
   if (Object.keys(input).some(key => !['operation', 'repo'].includes(key))) throw new Error('Unexpected preparation parameter.');
+  // Empty calls are a common model invocation. Default only an omitted value;
+  // never reinterpret an explicitly invalid operation as permission to prepare a commit.
+  const operation = input.operation === undefined ? 'commit' : input.operation;
+  if (!['commit', 'pr'].includes(operation)) throw new Error('operation must be commit or pr; omit it to prepare a commit.');
   if (input.repo !== undefined && (typeof input.repo !== 'string' || !path.isAbsolute(input.repo) || input.repo.length > 4096 || input.repo.includes('\0'))) throw new Error('repo must be an absolute path without NUL, at most 4096 characters.');
-  return input;
+  return {...input, operation};
 }
 
 export function requestedDirectory(ctx, agent, repo) {
@@ -183,5 +187,5 @@ export async function prepareOperation(ctx, projection, raw, exec) {
   return {operation: value.operation, repo, revision: value.revision, active: value.active, rulesHash: value.rulesHash,
     contextMessageId: message.id, delivery: 'after-tool-result-before-next-model-step',
     git: value.git ? {summary: value.git.summary, diffCharacters: value.git.diff.length, truncated: value.git.truncated} : null,
-    gitWarning: value.gitWarning, next: 'Read the attached context in a NEW model step, generate the text, then use the original approved Git/PR execution flow.'};
+    gitWarning: value.gitWarning, next: 'Read the attached context in a NEW model step, generate the text, then follow the normal Git/PR tools and Session permission policy. Preparation does not authorize a write.'};
 }

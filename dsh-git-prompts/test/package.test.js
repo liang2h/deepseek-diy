@@ -150,7 +150,9 @@ test('Host activation waits for its projection before publishing an effect-owned
   assert.equal(disposed, 4);
   const [preparation, settings] = tools;
   assert.deepEqual(preparation.parameters.properties.operation.enum, ['commit', 'pr']);
-  assert.deepEqual(preparation.parameters.required, ['operation']);
+  assert.deepEqual(preparation.parameters.required, []);
+  assert.match(preparation.parameters.properties.operation.description, /Defaults to commit when omitted/);
+  assert.match(preparation.parameters.properties.operation.description, /explicitly use pr/);
   assert.equal(preparation.parameters.additionalProperties, false);
   assert.equal(preparation.parameters.properties.repo.maxLength, 4096);
   assert.deepEqual(settings.parameters.properties.action.enum, ['get', 'update']);

@@ -26,9 +26,9 @@ export async function apply(ctx) {
     name: PREPARE_TOOL,
     description: 'Load configured commit or pull-request instructions on demand before drafting Git text. Returns source-attributed context and an optional read-only Git observation. Call before generating a commit message or PR title/body, then continue in a NEW model step; this tool never commits, pushes, or creates a PR.',
     parameters: {type: 'object', additionalProperties: false, properties: {
-      operation: {type: 'string', enum: ['commit', 'pr'], description: 'The operation whose instructions to load.'},
+      operation: {type: 'string', enum: ['commit', 'pr'], description: 'The operation whose instructions to load. Defaults to commit when omitted; explicitly use pr for pull-request instructions.'},
       repo: {type: 'string', maxLength: 4096, description: 'Absolute repository directory; defaults to the current Session directory. Use the same directory in the subsequent git_workbench commit.'},
-    }, required: ['operation']},
+    }, required: []},
     isConcurrencySafe: () => false,
     output: objectOutput,
     execute: (args, exec) => prepareOperation(ctx, projection, args, exec),
