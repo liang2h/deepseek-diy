@@ -2,11 +2,14 @@ import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /** Read actions never intentionally change the index, worktree, refs, or remotes. */
-export const READ_ACTIONS = new Set(['summary', 'history', 'diff']);
+export const READ_ACTIONS = new Set(['summary', 'status', 'history', 'diff']);
+
+/** Keep the compatibility alias canonical before validation, approval, and execution. */
+export const normalizeAction = (action) => action === 'status' ? 'summary' : action;
 
 const FIELDS = {
   summary: [], history: ['limit', 'skip'], diff: ['path', 'paths', 'staged', 'revision'],
-  stage: ['paths'], unstage: ['paths'], commit: ['message'], switch: ['branch'],
+  stage: ['paths'], unstage: ['paths'], commit: ['message', 'paths'], switch: ['branch'],
   createBranch: ['branch'], deleteBranch: ['branch'], fetch: ['remote'],
   pull: ['remote'], push: ['remote'], stash: ['message'], stashPop: [],
   merge: ['branch'], init: [],
@@ -38,17 +41,19 @@ function absolutePath(value, field) {
   if (!path.isAbsolute(value)) throw failure('INVALID_REQUEST', `${field} must be an absolute path.`);
   return path.resolve(value);
 }
-function validate(request, cwd) {
+/** Validate and snapshot a request synchronously without executing Git. */
+export function validateRequest(request, cwd) {
   if (!request || typeof request !== 'object' || Array.isArray(request)
       || ![Object.prototype, null].includes(Object.getPrototypeOf(request))) {
     throw failure('INVALID_REQUEST', 'request must be a plain object.');
   }
-  if (typeof request.action !== 'string' || !own(FIELDS, request.action)) throw failure('INVALID_REQUEST', 'Unsupported Git action.');
-  const allowed = new Set(['action', 'repo', ...FIELDS[request.action]]);
+  const action = normalizeAction(request.action);
+  if (typeof action !== 'string' || !own(FIELDS, action)) throw failure('INVALID_REQUEST', 'Unsupported Git action.');
+  const allowed = new Set(['action', 'repo', ...FIELDS[action]]);
   for (const key of Object.keys(request)) {
     if (!allowed.has(key)) throw failure('INVALID_REQUEST', `Unexpected field for ${request.action}: ${key}`);
   }
-  const result = { ...request };
+  const result = { ...request, action };
   result.cwd = absolutePath(request.repo ?? cwd, request.repo === undefined ? 'cwd' : 'repo');
   if (own(request, 'repo')) absolutePath(request.repo, 'repo');
   if (request.action === 'init' && !own(request, 'repo')) {
@@ -58,7 +63,7 @@ function validate(request, cwd) {
     if (!Array.isArray(request.paths) || !request.paths.length || request.paths.length > MAX_PATHS) {
       throw failure('INVALID_REQUEST', `paths must contain between 1 and ${MAX_PATHS} relative paths.`);
     }
-    result.paths = [...new Set(request.paths.map(relativePath))];
+    result.paths = [...new Set(Array.from(request.paths, relativePath))];
   }
   if (own(request, 'path')) result.path = relativePath(request.path);
   if (own(request, 'path') && own(request, 'paths')) throw failure('INVALID_REQUEST', 'Use path or paths, not both.');
@@ -150,7 +155,7 @@ export class GitManager {
   execute(request, { cwd, signal } = {}) {
     // Snapshot and validate before queueing so a caller cannot mutate queued input.
     let input;
-    try { input = validate(request, cwd); } catch (error) { return Promise.reject(error); }
+    try { input = validateRequest(request, cwd); } catch (error) { return Promise.reject(error); }
     const next = this.#tail.then(() => this.#execute(input, signal));
     this.#tail = next.catch(() => {}); // Keep later requests usable; return the original rejecting promise.
     return next;
@@ -293,6 +298,42 @@ export class GitManager {
     return { text, truncated };
   }
 
+  async #selectedPaths(repo, selected, signal, staging = false) {
+    const paths = new Set(selected);
+    const files = await this.#status(repo, signal);
+    for (const file of files) {
+      if (!file.originalPath || !(paths.has(file.path) || paths.has(file.originalPath))) continue;
+      paths.add(file.path);
+      if (staging && ['R', 'C'].includes(file.index)) {
+        // Its source is already represented in the index. A vanished source is
+        // no longer an add pathspec; map an explicit selection to its destination.
+        if (!files.some((candidate) => candidate.path === file.originalPath)) paths.delete(file.originalPath);
+      } else paths.add(file.originalPath);
+    }
+    return [...paths];
+  }
+
+  async #commit(repo, input, signal) {
+    let stagingAttempted = false;
+    try {
+      if (input.paths) {
+        const paths = await this.#selectedPaths(repo, input.paths, signal, true);
+        signal?.throwIfAborted();
+        stagingAttempted = true;
+        await this.#git(repo, ['add', '-A', '--', ...paths], signal);
+      }
+      // No pathspec here: include the whole existing index, as an ordinary commit does.
+      const result = await this.#git(repo, ['commit', '--file=-'], signal, { stdin: input.message });
+      return { action: input.action, repo, stdout: result.stdout, stderr: result.stderr,
+        exitCode: result.exitCode, hash: await this.#head(repo, signal) };
+    } catch (error) {
+      if (!stagingAttempted) throw error;
+      const message = `${error?.message ?? String(error)} Staging was attempted; changes may remain staged. Check Git status before retrying; no rollback or automatic retry was performed.`;
+      throw failure(error?.code ?? 'GIT_ERROR', message, { ...error, message,
+        name: error?.name ?? 'Error', cause: error, stagedChangesMayRemain: true });
+    }
+  }
+
   async #network(repo, input, signal) {
     const names = await this.#remoteNames(repo, signal);
     if (input.remote && !names.includes(input.remote)) throw failure('INVALID_REQUEST', 'remote must name an existing repository remote.');
@@ -334,24 +375,18 @@ export class GitManager {
     if (input.action === 'summary') return this.#summary(repo, signal);
     if (input.action === 'history') return this.#history(repo, input, signal);
     if (input.action === 'diff') return this.#diff(repo, input, signal);
+    if (input.action === 'commit') return this.#commit(repo, input, signal);
     if (input.branch) await this.#branch(repo, input.branch, signal);
     let args;
-    let stdin;
     switch (input.action) {
       case 'stage':
       case 'unstage': {
-        const paths = new Set(input.paths);
-        for (const file of await this.#status(repo, signal)) {
-          if (file.originalPath && (paths.has(file.path) || paths.has(file.originalPath))) {
-            paths.add(file.path); paths.add(file.originalPath);
-          }
-        }
+        const paths = await this.#selectedPaths(repo, input.paths, signal, input.action === 'stage');
         args = input.action === 'stage' ? ['add', '-A', '--', ...paths]
           : await this.#head(repo, signal) ? ['restore', '--staged', '--source=HEAD', '--', ...paths]
             : ['rm', '--cached', '-r', '--force', '--ignore-unmatch', '--', ...paths];
         break;
       }
-      case 'commit': args = ['commit', '--file=-']; stdin = input.message; break;
       case 'switch': args = ['switch', '--', input.branch]; break;
       case 'createBranch': args = ['branch', '--', input.branch]; break;
       case 'deleteBranch': args = ['branch', '-d', '--', input.branch]; break;
@@ -362,7 +397,7 @@ export class GitManager {
       default: throw failure('INVALID_REQUEST', 'Unsupported Git action.');
     }
     const conflictAction = input.action === 'stashPop' || input.action === 'merge';
-    const result = await this.#git(repo, args, signal, { stdin, allowedExitCodes: conflictAction ? [0, 1] : [0] });
+    const result = await this.#git(repo, args, signal, { allowedExitCodes: conflictAction ? [0, 1] : [0] });
     if (result.exitCode !== 0) {
       const conflicts = (await this.#status(repo, signal)).filter((file) => file.conflict).map((file) => file.path);
       const error = this.#commandError(args, result, conflicts.length ? 'GIT_CONFLICT' : 'GIT_ERROR');
@@ -370,7 +405,6 @@ export class GitManager {
       throw error;
     }
     const response = { action: input.action, repo, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
-    if (input.action === 'commit') response.hash = await this.#head(repo, signal);
     return response;
   }
 }

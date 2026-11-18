@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Git Workbench",
-    "description": "SourceTree-style Git sidebar: staging, diffs, commit graph, branches, remotes and stashes."
+    "description": "SourceTree-style Git sidebar: status, staging, diffs, history, branches, remotes and stashes. Supports the read-only status alias. Agents can stage explicit paths and commit all staged content, including existing staging, with one approval. Push and other operations retain separate confirmation."
   }
 }

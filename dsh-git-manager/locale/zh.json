@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Git 工作台",
-    "description": "类似 SourceTree 的 Git 右侧栏：暂存、差异、提交图、分支、远端同步与储藏管理。"
+    "description": "类似 SourceTree 的 Git 右侧栏：状态、暂存、差异、提交图、分支、远端同步与储藏管理。支持 status 只读别名；Agent 可显式指定路径，一次审批完成暂存后提交，包含原有暂存内容；推送等操作仍单独确认。"
   }
 }

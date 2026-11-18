@@ -280,6 +280,87 @@ test('Host adapter: real Git integration', { timeout: 30000 }, async t => {
     }
   }));
 
+  await t.test('status is a read-only summary alias through the tool and sidebar RPC', async () => fixture(async ({ repo, makeHost }) => {
+    const host = makeHost();
+    await writeFile(path.join(repo, 'alias.txt'), 'status alias\n');
+    const expected = await host.toolCall({action: 'summary'});
+    assert.deepEqual(await host.toolCall({action: 'status'}), expected);
+    assert.deepEqual(await uiValue(host, {action: 'status'}), expected);
+    assert.equal(host.records.approvals.length, 0);
+    assert.ok(host.records.confinements.every(item => item.policy.mode === 'read-only'));
+  }));
+
+  await t.test('combined local commit stages explicit paths and commits once with exactly one scoped approval', async () => fixture(async ({ repo, makeHost }) => {
+    const host = makeHost();
+    await writeFile(path.join(repo, 'existing.txt'), 'previous staging\n');
+    await git(repo, 'add', '--', 'existing.txt');
+    await writeFile(path.join(repo, 'selected [中文].txt'), 'selected change\n');
+    await writeFile(path.join(repo, 'leave.txt'), 'not selected\n');
+    const request = {action: 'commit', paths: ['selected [中文].txt'], message: 'feat: 一次确认提交', confirmed: true};
+    const result = await host.toolCall(request);
+    assert.equal(result.action, 'commit');
+    assert.equal(host.records.approvals.length, 1);
+    const approval = host.records.approvals[0];
+    assert.match(approval.reason, /Stage the specified paths and commit ALL staged changes/);
+    assert.match(approval.reason, /including existing staged content/);
+    assert.ok(approval.reason.includes(request.message));
+    assert.ok(approval.reason.includes('selected [中文].txt'));
+    assert.ok(approval.reason.includes(repo), 'approval must show the resolved target directory even when repo was omitted');
+    assert.match(approval.displayReason.zh, /一次确认/);
+    assert.match(approval.displayReason.zh, /原先已暂存/);
+    assert.deepEqual((await git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD')).split('\0').filter(Boolean).sort(), ['existing.txt', 'selected [中文].txt'].sort());
+    assert.equal(await git(repo, 'diff', '--cached', '--name-only'), '');
+    assert.match(await git(repo, 'status', '--porcelain=v1'), /leave\.txt/);
+    const commands = host.records.spawns.map(spec => spec.argv[7]);
+    assert.equal(commands.filter(action => action === 'add').length, 1);
+    assert.equal(commands.filter(action => action === 'commit').length, 1);
+    // An allowed-once decision is never cached for a later commit.
+    host.setApproval('rejected');
+    await assert.rejects(host.toolCall({action: 'commit', paths: ['leave.txt'], message: 'must ask again'}), /not approved/);
+    assert.equal(host.records.approvals.length, 2);
+    assert.equal((await git(repo, 'rev-parse', 'HEAD')).trim(), result.hash);
+    assert.equal(await git(repo, 'diff', '--cached', '--name-only'), '');
+  }));
+
+  await t.test('rejecting a combined commit performs no staging or commit, even with tool confirmed=true', async () => fixture(async ({ repo, makeHost }) => {
+    const host = makeHost();
+    await writeFile(path.join(repo, 'tracked.txt'), 'must not stage\n');
+    const before = await git(repo, 'status', '--porcelain=v1');
+    const head = await git(repo, 'rev-parse', 'HEAD');
+    for (const outcome of ['rejected', 'cancelled', 'unavailable']) {
+      host.setApproval(outcome);
+      await assert.rejects(host.toolCall({action: 'commit', paths: ['tracked.txt'], message: 'blocked', confirmed: true}), /not approved/);
+      assert.equal(await git(repo, 'status', '--porcelain=v1'), before);
+      assert.equal(await git(repo, 'rev-parse', 'HEAD'), head);
+    }
+    assert.equal(host.records.approvals.length, 3);
+    assert.equal(host.records.spawns.length, 0);
+  }));
+
+  await t.test('invalid status and commit requests fail before any approval or Git command', async () => fixture(async ({ makeHost }) => {
+    const host = makeHost();
+    for (const request of [
+      {action: 'status', paths: ['.']}, {action: 'status', message: 'not a write'},
+      {action: 'commit', paths: [], message: 'invalid'}, {action: 'commit', paths: ['../outside'], message: 'invalid'},
+      {action: 'commit', paths: ['/absolute'], message: 'invalid'}, {action: 'commit', paths: ['tracked.txt'], message: '  '},
+      {action: 'commit', paths: ['tracked.txt']},
+    ]) await assert.rejects(host.toolCall(request));
+    assert.equal(host.records.approvals.length, 0);
+    assert.equal(host.records.spawns.length, 0);
+  }));
+
+  await t.test('combined UI commit keeps its original explicit confirmation boundary', async () => fixture(async ({ repo, makeHost }) => {
+    const host = makeHost();
+    await writeFile(path.join(repo, 'tracked.txt'), 'UI combined\n');
+    const request = {action: 'commit', paths: ['tracked.txt'], message: 'UI combined operation'};
+    assert.equal((await host.uiCall(request)).ok, false);
+    assert.equal(host.records.spawns.length, 0);
+    const result = await uiValue(host, {...request, confirmed: true});
+    assert.equal(result.action, 'commit');
+    assert.equal(host.records.approvals.length, 0, 'UI confirmation is not a reusable agent approval');
+    assert.equal(await git(repo, 'status', '--porcelain=v1'), '');
+  }));
+
   await t.test('tool mutations fail closed for every outcome except allowed-once', async () => fixture(async ({ repo, makeHost }) => {
     const host = makeHost();
     await writeFile(path.join(repo, 'tracked.txt'), 'modified\n');
@@ -334,7 +415,7 @@ test('Host adapter: real Git integration', { timeout: 30000 }, async t => {
   await t.test('read confinement is read-only; writes preserve the resolved session policy without overrides', async () => fixture(async ({ repo, makeHost }) => {
     for (const mode of ['read-only', 'workspace-write', 'danger-full-access']) {
       const host = makeHost({ mode });
-      for (const action of ['summary', 'history', 'diff']) {
+      for (const action of ['summary', 'status', 'history', 'diff']) {
         const before = host.records.confinements.length;
         await host.toolCall({ action });
         assert.ok(host.records.confinements.length > before);
@@ -454,7 +535,7 @@ test('Host adapter: real Git integration', { timeout: 30000 }, async t => {
     assert.equal(parameters.additionalProperties, false);
     assert.deepEqual(parameters.required, ['action']);
     assert.equal(parameters.properties.confirmed, undefined, 'agent tool cannot self-confirm a human command');
-    assert.deepEqual(parameters.properties.action.enum, ['summary', 'history', 'diff', 'stage', 'unstage', 'commit', 'switch', 'createBranch', 'deleteBranch', 'fetch', 'pull', 'push', 'stash', 'stashPop', 'merge', 'init']);
+    assert.deepEqual(parameters.properties.action.enum, ['summary', 'status', 'history', 'diff', 'stage', 'unstage', 'commit', 'switch', 'createBranch', 'deleteBranch', 'fetch', 'pull', 'push', 'stash', 'stashPop', 'merge', 'init']);
     assert.equal(host.tool.timeoutMs, 150000);
     assert.equal(host.tool.isConcurrencySafe({ action: 'summary' }), false);
     assert.match(host.tool.description, /approval/);

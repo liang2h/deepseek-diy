@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, writeFile, rename, rm, realpath, lstat, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GitManager, READ_ACTIONS } from '../git.js';
+import { GitManager, READ_ACTIONS, normalizeAction, validateRequest } from '../git.js';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const fixturePrefix = '.git-manager-fixture-';
@@ -69,10 +69,93 @@ const execute = (manager, repo, action, extra = {}) => manager.execute({ action,
 const summary = (manager, repo) => execute(manager, repo, 'summary');
 
 test('read action contract and executor validation', async () => {
-  assert.deepEqual([...READ_ACTIONS], ['summary', 'history', 'diff']);
+  assert.deepEqual([...READ_ACTIONS], ['summary', 'status', 'history', 'diff']);
+  assert.equal(normalizeAction('status'), 'summary');
+  for (const action of ['summary', 'history', 'diff', 'commit', 'unsupported', null]) assert.equal(normalizeAction(action), action);
+  assert.deepEqual(validateRequest({ action: 'status' }, testDirectory), { action: 'summary', cwd: testDirectory });
+  const request = { action: 'commit', message: 'valid', paths: ['a', 'a', '.'] };
+  const validated = validateRequest(request, testDirectory);
+  request.paths[0] = 'changed';
+  assert.deepEqual(validated, { action: 'commit', message: 'valid', paths: ['a', '.'], cwd: testDirectory });
+  assert.throws(() => validateRequest({ action: 'status', paths: ['.'] }, testDirectory), { code: 'INVALID_REQUEST' });
+  assert.throws(() => validateRequest({ action: 'commit', message: 'valid', confirmed: true }, testDirectory), { code: 'INVALID_REQUEST' });
   assert.throws(() => new GitManager(null), TypeError);
   await assert.rejects(new GitManager(async () => ({})).execute({ action: 'summary' }, { cwd: testDirectory }), { code: 'INVALID_EXECUTOR_RESULT' });
 });
+
+test('status is exactly the summary read-only alias', () => fixture(async (root) => {
+  const repo = await init(root);
+  await commitFile(repo, 'tracked', 'base\n');
+  await writeFile(path.join(repo, 'tracked'), 'staged\n');
+  await run(repo, ['add', '--', 'tracked']);
+  await writeFile(path.join(repo, 'untracked'), 'untracked\n');
+  const index = await readFile(path.join(repo, '.git', 'index'));
+  const calls = [];
+  const manager = new GitManager(async (cwd, args, options) => {
+    calls.push(args);
+    return run(cwd, args, options);
+  });
+  const expected = await summary(manager, repo);
+  const summaryCalls = calls.splice(0);
+  assert.deepEqual(await execute(manager, repo, 'status'), expected);
+  assert.deepEqual(calls, summaryCalls);
+  assert.deepEqual(await readFile(path.join(repo, '.git', 'index')), index);
+}));
+
+test('commit paths stages only selected changes and includes the existing index', () => fixture(async (root) => {
+  const repo = await init(root);
+  await commitFile(repo, 'selected', 'base\n');
+  for (const name of ['existing', 'unselected', 'deleted']) await writeFile(path.join(repo, name), 'base\n');
+  await run(repo, ['add', '-A', '--', '.']);
+  await run(repo, ['commit', '-m', 'fixture baseline']);
+  await writeFile(path.join(repo, 'selected'), 'selected change\n');
+  await writeFile(path.join(repo, 'existing'), 'already staged\n');
+  await run(repo, ['add', '--', 'existing']);
+  await writeFile(path.join(repo, 'existing'), 'later worktree change\n');
+  await writeFile(path.join(repo, 'unselected'), 'must remain unstaged\n');
+  await writeFile(path.join(repo, 'untracked'), 'must remain untracked\n');
+  // The resolved deletion is confined to this newly created fixture repository.
+  const deleted = path.resolve(repo, 'deleted');
+  assert.equal(path.dirname(deleted), repo);
+  await rm(deleted);
+  await mkdir(path.join(repo, 'selected dir'));
+  await writeFile(path.join(repo, 'selected dir', 'added'), 'selected addition\n');
+  const calls = [];
+  const manager = new GitManager(async (cwd, args, options) => {
+    calls.push({ args, stdin: options.stdin });
+    return run(cwd, args, options);
+  });
+  const response = await execute(manager, repo, 'commit', { paths: ['selected', 'deleted', 'selected dir'], message: 'selected and existing' });
+  assert.equal(response.action, 'commit');
+  assert.equal(response.exitCode, 0);
+  assert.match(response.hash, /^[0-9a-f]{40,64}$/);
+  assert.deepEqual(calls.filter(({ args }) => ['add', 'commit'].includes(args[0])), [
+    { args: ['add', '-A', '--', 'selected', 'deleted', 'selected dir'], stdin: undefined },
+    { args: ['commit', '--file=-'], stdin: 'selected and existing' },
+  ]);
+  assert.deepEqual(new Set((await run(repo, ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'])).stdout.trim().split('\n')),
+    new Set(['selected', 'existing', 'deleted', 'selected dir/added']));
+  assert.equal((await run(repo, ['show', 'HEAD:existing'])).stdout, 'already staged\n');
+  const files = (await summary(manager, repo)).files;
+  assert.deepEqual(new Set(files.map((file) => file.path)), new Set(['existing', 'unselected', 'untracked']));
+  assert(files.every((file) => !file.staged));
+}));
+
+test('commit without paths commits only the existing index and never stages', () => fixture(async (root) => {
+  const repo = await init(root);
+  await commitFile(repo, 'tracked', 'base\n');
+  await writeFile(path.join(repo, 'tracked'), 'staged version\n');
+  await run(repo, ['add', '--', 'tracked']);
+  await writeFile(path.join(repo, 'tracked'), 'worktree version\n');
+  await writeFile(path.join(repo, 'untracked'), 'leave alone\n');
+  const calls = [];
+  const manager = new GitManager(async (cwd, args, options) => { calls.push(args[0]); return run(cwd, args, options); });
+  await execute(manager, repo, 'commit', { message: 'index only' });
+  assert(!calls.includes('add'));
+  assert(!calls.includes('status'));
+  assert.equal((await run(repo, ['show', 'HEAD:tracked'])).stdout, 'staged version\n');
+  assert.deepEqual(new Set((await summary(manager, repo)).files.map((file) => file.path)), new Set(['tracked', 'untracked']));
+}));
 
 test('stage, unstage, commit, history pagination, tracked/staged/revision diff', () => fixture(async (root) => {
   const repo = await init(root);
@@ -141,8 +224,10 @@ test('NUL status preserves Chinese, spaces, newline, leading dash and literal pa
   for (const name of names) {
     assert.match((await execute(manager, repo, 'diff', { path: name, staged: name === ':(glob)*' })).text, /contents of/);
   }
-  await execute(manager, repo, 'stage', { paths: names });
-  await execute(manager, repo, 'commit', { message: '特殊路径' });
+  await execute(manager, repo, 'commit', { paths: ['--help', '[abc].txt'], message: 'literal subset' });
+  assert.deepEqual(new Set((await summary(manager, repo)).files.map((file) => file.path)),
+    new Set(names.filter((name) => ![':(glob)*', '--help', '[abc].txt'].includes(name))));
+  await execute(manager, repo, 'commit', { paths: names, message: '特殊路径' });
   assert.deepEqual((await summary(manager, repo)).files, []);
 }));
 
@@ -162,6 +247,117 @@ test('rename status and unstage expand either side without deleting files', () =
   await execute(manager, repo, 'stage', { paths: ['.'] });
   await execute(manager, repo, 'unstage', { paths: ['原始\nname.txt'] });
   assert.equal((await run(repo, ['diff', '--cached', '--name-only'])).stdout, '');
+}));
+
+test('commit paths reuses stage rename selection for either side of an indexed rename', () => fixture(async (root) => {
+  for (const selected of ['source', 'destination']) {
+    const repo = await init(root, selected);
+    const original = path.resolve(repo, '原始\nname.txt');
+    const destination = path.resolve(repo, 'renamed 中文.txt');
+    assert.equal(path.dirname(original), repo);
+    assert.equal(path.dirname(destination), repo);
+    const content = 'same content\n'.repeat(30);
+    await commitFile(repo, '原始\nname.txt', content);
+    await rename(original, destination);
+    await run(repo, ['add', '-A', '--', '.']);
+    await writeFile(destination, `${content}updated renamed content\n`);
+    const manager = new GitManager(run);
+    const selectedPath = selected === 'source' ? '原始\nname.txt' : 'renamed 中文.txt';
+    // Re-staging an indexed rename must not pass its vanished source to git add.
+    await execute(manager, repo, 'stage', { paths: [selectedPath] });
+    await writeFile(destination, `${content}committed renamed content\n`);
+    await execute(manager, repo, 'commit', { paths: [selectedPath], message: 'rename selection' });
+    assert.equal((await run(repo, ['show', 'HEAD:renamed 中文.txt'])).stdout, `${content}committed renamed content\n`);
+    assert.equal((await run(repo, ['ls-tree', '-r', '--name-only', '-z', 'HEAD'])).stdout, 'renamed 中文.txt\0');
+    assert.deepEqual((await summary(manager, repo)).files, []);
+  }
+}));
+
+test('commit paths dot includes all changes in an unborn repository', () => fixture(async (root) => {
+  const repo = await init(root);
+  await writeFile(path.join(repo, 'first'), 'first\n');
+  await writeFile(path.join(repo, 'second'), 'second\n');
+  const manager = new GitManager(run);
+  await execute(manager, repo, 'commit', { paths: ['.'], message: 'initial combined commit' });
+  assert.deepEqual((await summary(manager, repo)).files, []);
+  assert.equal((await execute(manager, repo, 'history')).commits.length, 1);
+}));
+
+test('commit paths add failure does not commit, retry, or disturb the previous index', () => fixture(async (root) => {
+  const repo = await init(root);
+  const head = await commitFile(repo, 'existing', 'base\n');
+  await writeFile(path.join(repo, 'existing'), 'previously staged\n');
+  await run(repo, ['add', '--', 'existing']);
+  const index = await readFile(path.join(repo, '.git', 'index'));
+  const calls = [];
+  const manager = new GitManager(async (cwd, args, options) => { calls.push(args[0]); return run(cwd, args, options); });
+  await assert.rejects(execute(manager, repo, 'commit', { paths: ['missing'], message: 'must not commit' }), (error) => {
+    assert.equal(error.code, 'GIT_ERROR');
+    assert.equal(error.args[0], 'add');
+    assert.equal(error.stagedChangesMayRemain, true);
+    assert.match(error.message, /Check Git status before retrying/);
+    assert.match(error.message, /no rollback or automatic retry/);
+    return true;
+  });
+  assert.deepEqual(calls.filter((action) => ['add', 'commit', 'reset', 'restore'].includes(action)), ['add']);
+  assert.equal((await run(repo, ['rev-parse', 'HEAD'])).stdout.trim(), head);
+  assert.deepEqual(await readFile(path.join(repo, '.git', 'index')), index);
+}));
+
+test('commit paths commit failure preserves new and previously staged changes without reset', () => fixture(async (root) => {
+  const repo = await init(root);
+  const head = await commitFile(repo, 'existing', 'base\n');
+  await writeFile(path.join(repo, 'existing'), 'previously staged\n');
+  await run(repo, ['add', '--', 'existing']);
+  await writeFile(path.join(repo, 'selected'), 'new staged content\n');
+  const calls = [];
+  const manager = new GitManager(async (cwd, args, options) => {
+    calls.push(args[0]);
+    if (args[0] === 'commit') return { exitCode: 1, stdout: '', stderr: 'simulated commit rejection' };
+    return run(cwd, args, options);
+  });
+  await assert.rejects(execute(manager, repo, 'commit', { paths: ['selected'], message: 'expected failure' }), (error) => {
+    assert.equal(error.code, 'GIT_ERROR');
+    assert.equal(error.exitCode, 1);
+    assert.equal(error.args[0], 'commit');
+    assert.equal(error.stderr, 'simulated commit rejection');
+    assert.equal(error.stagedChangesMayRemain, true);
+    assert.match(error.message, /Check Git status before retrying/);
+    return true;
+  });
+  assert.deepEqual(calls.filter((action) => ['add', 'commit', 'reset', 'restore'].includes(action)), ['add', 'commit']);
+  assert.equal((await run(repo, ['rev-parse', 'HEAD'])).stdout.trim(), head);
+  assert.deepEqual(new Set((await run(repo, ['diff', '--cached', '--name-only'])).stdout.trim().split('\n')), new Set(['existing', 'selected']));
+  assert.equal((await run(repo, ['show', ':existing'])).stdout, 'previously staged\n');
+  assert.equal((await run(repo, ['show', ':selected'])).stdout, 'new staged content\n');
+}));
+
+test('commit paths cancellation after add prevents commit and leaves staged changes for inspection', () => fixture(async (root) => {
+  const repo = await init(root);
+  const head = await commitFile(repo, 'base', 'base\n');
+  await writeFile(path.join(repo, 'selected'), 'leave staged\n');
+  const controller = new AbortController();
+  const calls = [];
+  const manager = new GitManager(async (cwd, args, options) => {
+    calls.push(args[0]);
+    const result = await run(cwd, args, options);
+    if (args[0] === 'add') controller.abort();
+    return result;
+  });
+  await assert.rejects(manager.execute({ action: 'commit', paths: ['selected'], message: 'cancelled commit' },
+    { cwd: repo, signal: controller.signal }), (error) => {
+    assert.equal(error.name, 'AbortError');
+    assert.equal(error.stagedChangesMayRemain, true);
+    assert.match(error.message, /Check Git status before retrying/);
+    return true;
+  });
+  assert.deepEqual(calls.filter((action) => ['add', 'commit', 'reset', 'restore'].includes(action)), ['add']);
+  assert.equal((await run(repo, ['rev-parse', 'HEAD'])).stdout.trim(), head);
+  assert.equal((await run(repo, ['show', ':selected'])).stdout, 'leave staged\n');
+  const before = calls.length;
+  await assert.rejects(manager.execute({ action: 'commit', paths: ['selected'], message: 'already cancelled' },
+    { cwd: repo, signal: controller.signal }), { name: 'AbortError' });
+  assert.equal(calls.length, before, 'pre-cancelled commits must execute no Git commands');
 }));
 
 test('branch creation/switch, ordinary merge and safe deletion refuse unmerged work', () => fixture(async (root) => {
@@ -325,6 +521,19 @@ test('strict request validation rejects malicious paths/options/revisions withou
     { action: 'diff', revision: '1234567', staged: true }, { action: 'diff', staged: 'yes' },
     { action: 'diff', path: 'a', paths: ['b'] }, { action: 'diff', path: '../a' },
     { action: 'commit', message: '' }, { action: 'commit', message: '  ' }, { action: 'commit', message: 'a\0b' },
+    { action: 'commit', paths: ['.'] }, { action: 'commit', message: '', paths: ['.'] },
+    { action: 'commit', message: '  ', paths: ['.'] }, { action: 'commit', message: 'valid', paths: [] },
+    { action: 'commit', message: 'valid', paths: ['safe', '../outside'] },
+    { action: 'commit', message: 'valid', paths: ['/absolute'] },
+    { action: 'commit', message: 'valid', paths: ['C:\\absolute'] },
+    { action: 'commit', message: 'valid', paths: Array(201).fill('safe') },
+    { action: 'commit', message: 'valid', paths: new Array(1) },
+    { action: 'commit', message: 'valid', paths: ['a', null] },
+    { action: 'commit', message: 'valid', paths: ['.'], confirmed: true },
+    { action: 'commit', message: 'valid', paths: ['.'], autoapprove: true },
+    { action: 'status', paths: ['.'] }, { action: 'status', message: 'must not write' },
+    { action: 'status', branch: 'main' }, { action: 'status', remote: 'origin' },
+    { action: 'status', confirmed: true }, { action: 'summary', confirmed: true },
     { action: 'history', limit: 0 }, { action: 'history', limit: 201 }, { action: 'history', limit: 1.1 },
     { action: 'history', limit: null }, { action: 'history', skip: null }, { action: {} },
     { action: 'history', skip: -1 }, { action: 'history', skip: 100001 },
