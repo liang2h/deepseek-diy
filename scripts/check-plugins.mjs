@@ -11,7 +11,7 @@ for (const directory of PLUGINS) {
   }
   const tests = (await readdir(path.join(cwd, 'test'))).filter(file => file.endsWith('.test.js'));
   const env = {...process.env};
-  if (directory === 'dsh-next-input') {
+  if (['dsh-next-input', 'dsh-git-prompts'].includes(directory)) {
     // Its locked npm contract fixture must work without an ambient Desktop installation.
     delete env.DSH_NODE_EXECUTABLE;
     delete env.DSH_INSTALL_DIR;

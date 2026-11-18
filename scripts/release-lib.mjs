@@ -5,7 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('../', import.meta.url));
-export const PLUGINS = ['dsh-codex-mcp', 'dsh-git-manager', 'dsh-personalization', 'dsh-side-chat', 'dsh-auto-review-codex-compat', 'dsh-diagrams', 'dsh-next-input'];
+export const PLUGINS = ['dsh-codex-mcp', 'dsh-git-manager', 'dsh-personalization', 'dsh-side-chat', 'dsh-auto-review-codex-compat', 'dsh-diagrams', 'dsh-next-input', 'dsh-git-prompts'];
 
 export function releaseOptions({repo, tag, commit}) {
   assert.match(repo ?? '', /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/, 'repo must be OWNER/REPO');

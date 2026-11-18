@@ -27,10 +27,11 @@ test('release parameters reject traversal, URLs, mutable refs and malformed tags
 test('format 1 index pins every real package and monorepo directory to a full commit', () => {
   const index = makeIndex(records, options, 1794555000);
   assert.equal(index.format, 1);
-  assert.equal(records.length, 7);
+  assert.equal(records.length, 8);
   assert.ok(records.some(record => record.directory === 'dsh-auto-review-codex-compat'));
   assert.ok(records.some(record => record.directory === 'dsh-diagrams'));
   assert.ok(records.some(record => record.directory === 'dsh-next-input'));
+  assert.ok(records.some(record => record.directory === 'dsh-git-prompts'));
   assert.equal(index.plugins.length, records.length);
   for (const [i, plugin] of index.plugins.entries()) {
     assert.equal(plugin.name, records[i].manifest.name);
@@ -129,6 +130,7 @@ for (const record of records) test('real tarball contains runtime exports, not l
       files: files.filter(file => !file.endsWith('/')).map(file => ({path: file.slice('package/'.length)}))};
     validatePack(record.manifest, actual);
     const actualPaths = new Set(actual.files.map(file => file.path));
+    if (record.directory === 'dsh-git-prompts') assert.ok(actualPaths.has('core.js'), 'Missing git-prompts core module');
     if (record.directory === 'dsh-next-input') {
       for (const name of ['core.js', 'suggestion-policy.js', 'diagnostics.js', 'version.js', 'client-state.js', 'remote-contract.js'])
         assert.ok(actualPaths.has(name), 'Missing next-input runtime module: ' + name);
