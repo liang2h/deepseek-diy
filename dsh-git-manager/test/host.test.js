@@ -270,7 +270,7 @@ test('Host adapter: real Git integration', { timeout: 30000 }, async t => {
       assert.equal((await call({ action: 'history', limit: 1 })).commits.length, 1);
     }
     assert.ok(sources.includes('tool') && sources.includes('ui'));
-    assert.equal(host.records.approvals.length, 4, 'only the four tool writes ask approval');
+    assert.equal(host.records.approvals.length, 3, 'standalone stage/unstage ask approval; local commit adds no plugin confirmation');
     for (const request of host.records.approvals) {
       assert.equal(request.agent, host.agent);
       assert.equal(request.toolName, 'git_workbench');
@@ -290,51 +290,84 @@ test('Host adapter: real Git integration', { timeout: 30000 }, async t => {
     assert.ok(host.records.confinements.every(item => item.policy.mode === 'read-only'));
   }));
 
-  await t.test('combined local commit stages explicit paths and commits once with exactly one scoped approval', async () => fixture(async ({ repo, makeHost }) => {
+  await t.test('combined local commit stages explicit paths with no extra plugin approval', async () => fixture(async ({ repo, makeHost }) => {
     const host = makeHost();
+    host.setApproval('unavailable'); // Commit must not consult this plugin's approval path.
     await writeFile(path.join(repo, 'existing.txt'), 'previous staging\n');
     await git(repo, 'add', '--', 'existing.txt');
     await writeFile(path.join(repo, 'selected [中文].txt'), 'selected change\n');
     await writeFile(path.join(repo, 'leave.txt'), 'not selected\n');
-    const request = {action: 'commit', paths: ['selected [中文].txt'], message: 'feat: 一次确认提交', confirmed: true};
+    const request = {action: 'commit', paths: ['selected [中文].txt'], message: 'feat: 本地提交无需额外确认'};
     const result = await host.toolCall(request);
     assert.equal(result.action, 'commit');
-    assert.equal(host.records.approvals.length, 1);
-    const approval = host.records.approvals[0];
-    assert.match(approval.reason, /Stage the specified paths and commit ALL staged changes/);
-    assert.match(approval.reason, /including existing staged content/);
-    assert.ok(approval.reason.includes(request.message));
-    assert.ok(approval.reason.includes('selected [中文].txt'));
-    assert.ok(approval.reason.includes(repo), 'approval must show the resolved target directory even when repo was omitted');
-    assert.match(approval.displayReason.zh, /一次确认/);
-    assert.match(approval.displayReason.zh, /原先已暂存/);
+    assert.equal(host.records.approvals.length, 0);
     assert.deepEqual((await git(repo, 'diff-tree', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD')).split('\0').filter(Boolean).sort(), ['existing.txt', 'selected [中文].txt'].sort());
     assert.equal(await git(repo, 'diff', '--cached', '--name-only'), '');
     assert.match(await git(repo, 'status', '--porcelain=v1'), /leave\.txt/);
     const commands = host.records.spawns.map(spec => spec.argv[7]);
     assert.equal(commands.filter(action => action === 'add').length, 1);
     assert.equal(commands.filter(action => action === 'commit').length, 1);
-    // An allowed-once decision is never cached for a later commit.
-    host.setApproval('rejected');
-    await assert.rejects(host.toolCall({action: 'commit', paths: ['leave.txt'], message: 'must ask again'}), /not approved/);
-    assert.equal(host.records.approvals.length, 2);
-    assert.equal((await git(repo, 'rev-parse', 'HEAD')).trim(), result.hash);
+    // This is a narrow policy, not a cached allowed-once decision.
+    const second = await host.toolCall({action: 'commit', paths: ['leave.txt'], message: 'another requested local commit'});
+    assert.equal(host.records.approvals.length, 0);
+    assert.notEqual(second.hash, result.hash);
     assert.equal(await git(repo, 'diff', '--cached', '--name-only'), '');
+    // A later remote/destructive operation is NOT covered by the local-commit policy.
+    host.setApproval('rejected');
+    await assert.rejects(host.toolCall({action: 'push'}), /not approved/);
+    assert.equal(host.records.approvals.length, 1);
+    assert.match(host.records.approvals[0].reason, /"action":"push"/);
+    assert.ok(host.records.approvals[0].reason.includes(repo));
   }));
 
-  await t.test('rejecting a combined commit performs no staging or commit, even with tool confirmed=true', async () => fixture(async ({ repo, makeHost }) => {
+  await t.test('every non-commit mutation still requires approval and cannot self-confirm', async () => fixture(async ({ repo, makeHost }) => {
     const host = makeHost();
     await writeFile(path.join(repo, 'tracked.txt'), 'must not stage\n');
     const before = await git(repo, 'status', '--porcelain=v1');
     const head = await git(repo, 'rev-parse', 'HEAD');
+    const requests = [{action: 'stage', paths: ['tracked.txt']}, {action: 'unstage', paths: ['tracked.txt']},
+      {action: 'push'}, {action: 'pull'}, {action: 'fetch'}, {action: 'merge', branch: 'main'},
+      {action: 'deleteBranch', branch: 'main'}, {action: 'switch', branch: 'main'},
+      {action: 'createBranch', branch: 'new-branch'}, {action: 'stash'}, {action: 'stashPop'}, {action: 'init', repo}];
     for (const outcome of ['rejected', 'cancelled', 'unavailable']) {
       host.setApproval(outcome);
-      await assert.rejects(host.toolCall({action: 'commit', paths: ['tracked.txt'], message: 'blocked', confirmed: true}), /not approved/);
+      for (const request of requests) await assert.rejects(host.toolCall({...request, confirmed: true}), /not approved/);
       assert.equal(await git(repo, 'status', '--porcelain=v1'), before);
       assert.equal(await git(repo, 'rev-parse', 'HEAD'), head);
     }
-    assert.equal(host.records.approvals.length, 3);
+    assert.equal(host.records.approvals.length, requests.length * 3);
     assert.equal(host.records.spawns.length, 0);
+  }));
+
+  await t.test('local commit without paths adds no plugin approval and does not stage worktree changes', async () => fixture(async ({ repo, makeHost }) => {
+    const host = makeHost();
+    await writeFile(path.join(repo, 'tracked.txt'), 'staged version\n');
+    await git(repo, 'add', '--', 'tracked.txt');
+    await writeFile(path.join(repo, 'tracked.txt'), 'unstaged version\n');
+    host.ctx.approval.request = async () => {throw new Error('Local commit must not ask plugin approval');};
+    const result = await host.toolCall({action: 'commit', message: 'index-only local commit'});
+    assert.equal(result.action, 'commit');
+    assert.equal((await git(repo, 'show', 'HEAD:tracked.txt')), 'staged version\n');
+    assert.match(await git(repo, 'diff', '--', 'tracked.txt'), /unstaged version/);
+    assert.equal(host.records.approvals.length, 0);
+    assert.equal(host.records.spawns.filter(spec => spec.argv[7] === 'add').length, 0);
+  }));
+
+  await t.test('local commit still fails closed on a Session sandbox denial without escalating or retrying', async () => fixture(async ({ repo, makeHost }) => {
+    const host = makeHost({mode: 'read-only'});
+    const head = await git(repo, 'rev-parse', 'HEAD');
+    let confinements = 0;
+    host.ctx.sandbox.confine = async (_argv, policy, signal) => {
+      signal.throwIfAborted();
+      assert.equal(policy.mode, 'read-only');
+      confinements++;
+      throw new Error('Fixture Session sandbox denied execution');
+    };
+    await assert.rejects(host.toolCall({action: 'commit', paths: ['tracked.txt'], message: 'blocked by Session policy'}), /sandbox denied/);
+    assert.equal(confinements, 1);
+    assert.equal(host.records.spawns.length, 0);
+    assert.equal(host.records.approvals.length, 0);
+    assert.equal(await git(repo, 'rev-parse', 'HEAD'), head);
   }));
 
   await t.test('invalid status and commit requests fail before any approval or Git command', async () => fixture(async ({ makeHost }) => {

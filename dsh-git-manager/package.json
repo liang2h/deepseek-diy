@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-git-manager",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "SourceTree-style Git management in the DSH right sidebar",
   "type": "module",

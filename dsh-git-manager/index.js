@@ -9,7 +9,7 @@ export const parameters = {
   properties: {
     action: {type: 'string', enum: ['summary', 'status', 'history', 'diff', 'stage', 'unstage', 'commit', 'switch', 'createBranch', 'deleteBranch', 'fetch', 'pull', 'push', 'stash', 'stashPop', 'merge', 'init'], description: 'status is a read-only alias of summary.'},
     repo: {type: 'string', maxLength: 4096, description: 'Absolute repository directory; defaults to the current session directory. init requires an explicit existing empty directory.'},
-    paths: {type: 'array', minItems: 1, maxItems: 200, items: {type: 'string', maxLength: 4096}, description: 'Required for stage/unstage; optional for commit: 1–200 repository-relative literal paths, no traversal. With commit, stage these paths then commit ALL staged content under one approval (including any previously staged changes). Omit to commit only existing staged content. Use ["."] explicitly for all files.'},
+    paths: {type: 'array', minItems: 1, maxItems: 200, items: {type: 'string', maxLength: 4096}, description: 'Required for stage/unstage; optional for commit: 1–200 repository-relative literal paths, no traversal. With commit, stage these paths then commit ALL staged content (including any previously staged changes). Omit to commit only existing staged content. Use ["."] explicitly for all files.'},
     path: {type: 'string', maxLength: 4096, description: 'Repository-relative file path for diff, no traversal; omit for the full diff.'},
     staged: {type: 'boolean', description: 'For diff, compare staged changes against HEAD instead of the working tree.'},
     revision: {type: 'string', description: 'For diff, show a commit identified by a 7–64 character hexadecimal hash.'},
@@ -37,12 +37,14 @@ export class GitWorkbenchService {
     const cwd = await this.ctx.workingDirectory.ensure(agent, operationSignal);
     // Reject invalid requests before asking the user; no Git command or write has run.
     const checked = validateRequest(clean, cwd);
-    if (!readOnly && source === 'tool') {
+    // Local commits follow the Session's normal tool policy without a second
+    // plugin-specific question. This does not approve the call or change policy;
+    // pre-execute guards, the Session sandbox, and the UI confirmation still apply.
+    if (!readOnly && source === 'tool' && action !== 'commit') {
       const detail = JSON.stringify({...clean, repo: checked.cwd});
-      const combinedCommit = action === 'commit' && clean.paths !== undefined;
       const outcome = await this.ctx.approval.request({agent, toolName: 'git_workbench', callId, signal: operationSignal,
-        reason: combinedCommit ? `Stage the specified paths and commit ALL staged changes, including existing staged content, as one local operation: ${detail}` : `Git operation will modify repository or remote: ${detail}`,
-        displayReason: {en: combinedCommit ? `Confirm once: stage the specified paths, then commit all staged changes (including existing staged content): ${detail}` : `Confirm Git operation: ${detail}`, zh: combinedCommit ? `一次确认：暂存指定路径后提交全部已暂存内容（包括原先已暂存的更改）：${detail}` : `确认 Git 仓库操作：${detail}`}});
+        reason: `Git operation will modify repository or remote: ${detail}`,
+        displayReason: {en: `Confirm Git operation: ${detail}`, zh: `确认 Git 仓库操作：${detail}`}});
       if (outcome !== 'allowed-once') throw new Error(`Git operation not approved (${outcome}).`);
     }
     if (!readOnly && source === 'ui' && request.confirmed !== true) throw new Error('Confirm this write operation in Git Workbench before continuing.');
@@ -125,7 +127,7 @@ export function apply(ctx) {
   }));
   ctx.effect(() => ctx.tools.register({
     name: 'git_workbench',
-    description: 'Inspect or manage Git repositories: summary/status, history, diffs, staging, commits, branches, remotes and stashes. For one local commit needing staging, use action=commit with paths and message: one approval covers staging the explicit paths and committing all staged content, including existing staged changes. Omit paths to commit only existing staged content. Other mutations retain separate approval; all actions respect the session sandbox. Pull is fast-forward-only; no forced push, hard reset or discard.',
+    description: 'Inspect or manage Git repositories: summary/status, history, diffs, staging, commits, branches, remotes and stashes. Commit only at the user’s request. For a local commit needing staging, use action=commit with paths and message; this plugin adds no commit confirmation beyond the Session’s normal tool policy. Omit paths to commit only existing staged content. Standalone stage/unstage and all other mutations retain plugin approval; all actions respect the Session sandbox and preparation guards. Pull is fast-forward-only; no forced push, hard reset or discard.',
     parameters,
     timeoutMs: 150000,
     isConcurrencySafe: () => false,
