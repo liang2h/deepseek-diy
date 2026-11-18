@@ -2,19 +2,27 @@
 
 独立的 DeepSeek Harness（DSH）插件集合。GitHub 公开仓库发布后，支持 **分享插件索引** 和 **分享单个安装包 URL**，不需要接收者克隆源码、自己编译，也不需要发布到 npm。
 
-> 代码仓库：[liang2h/deepseek-diy](https://github.com/liang2h/deepseek-diy)。下列索引和安装包链接在相应 GitHub Actions 发布成功后生效；本次集合标签为 plugins-v1.2.0，包含 7 个插件。旧版 plugins-v1.0.0、plugins-v1.1.0 的标签和资产保持可用。
+> 代码仓库：[liang2h/deepseek-diy](https://github.com/liang2h/deepseek-diy)。下列索引和安装包链接在相应 GitHub Actions 发布成功后生效；本次集合标签为 plugins-v1.3.0，包含 8 个插件。旧版 plugins-v1.0.0、plugins-v1.1.0、plugins-v1.2.0 的标签和资产保持可用。
 
 ## 插件
 
 | 插件 | 当前版本 | 使用说明 |
 | --- | --- | --- |
 | Codex 项目 MCP | 1.2.3 | [项目级 MCP 配置、按需工具与 OAuth](<dsh-codex-mcp/README.md>) |
-| Git 工作台 | 1.0.3 | [右侧栏 Git 管理](<dsh-git-manager/README.md>) |
+| Git 工作台 | 1.0.5 | [右侧栏 Git 管理](<dsh-git-manager/README.md>) |
 | 个性化 | 1.0.0 | [当前 profile 的统一个性化指令](<dsh-personalization/README.md>) |
 | 侧边聊天 | 2.2.0 | [继承主会话上下文的私有问答](<dsh-side-chat/README.md>) |
 | 下一轮输入建议 | 1.0.5 | [有明确缺口时自动显示下一轮建议，点击填入但不发送](<dsh-next-input/README.md>) |
 | Mermaid 图表 | 1.0.0 | [聊天中的 Mermaid 图表可视化](<dsh-diagrams/README.md>) |
 | 自动审查参数兼容 | 1.1.0 | [省略所有审查路由的强制 temperature，保留权限门禁](<dsh-auto-review-codex-compat/README.md>) |
+
+| Git 操作指令 | 1.0.3 | [按需加载提交与 PR 规则，不常驻系统提示词](<dsh-git-prompts/README.md>) |
+
+## plugins-v1.3.0 更新
+
+- 首次纳入 Git 操作指令 1.0.3；`prepare_git_operation({})` 默认准备 commit，PR 必须显式指定。准备规则不授权写入，不替代 Session 权限。
+- Git 工作台从 1.0.3 升级至 1.0.5，支持 `status` 别名及一次调用显式暂存并提交；本地 commit 不再额外申请插件审批，仍遵守用户请求、Session 策略和文件沙箱。其他写操作的审批边界保持不变。
+- Git 指令的原生 Tools Pipeline、Session 与 Projection 契约纳入锁定 SDK 的 CI 隔离验证；不以 mock 管线或缺环境跳过代替通过。
 
 ## plugins-v1.2.0 更新
 
@@ -51,7 +59,7 @@ https://liang2h.github.io/deepseek-diy/index.json
 不启用“发现”也可以使用 Release 安装包，例如：
 
 ```text
-https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.2.0/dsh-codex-mcp-1.2.3.tgz
+https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.3.0/dsh-codex-mcp-1.2.3.tgz
 ```
 
 接收者在 DSH 的插件安装入口粘贴该 URL，或向智能体发送：
@@ -60,14 +68,14 @@ https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.2.0/dsh-cod
 
 不在 URL 后追加查询参数。安装由 DSH 原生插件管理器处理；不要直接把源码复制进 DSH 安装目录。遇到同名包或升级提示时，按管理器要求操作，不自动移除已有配置。安装后可能需要重启 DSH 或刷新页面。
 
-本次工作流打包全部 7 个插件，并附带索引快照、SHA256SUMS 和可直接转发的 SHARE.md；完整安装链接也写入 Release 正文。压缩包不包含 node_modules，运行依赖仍由 DSH 的包管理器下载。
+本次工作流打包全部 8 个插件，并附带索引快照、SHA256SUMS 和可直接转发的 SHARE.md；完整安装链接也写入 Release 正文。压缩包不包含 node_modules，运行依赖仍由 DSH 的包管理器下载。
 
 ## 作者首次配置
 
 1. 在 GitHub 创建你选择的 **公开仓库**，将经过检查的项目提交并推送到该仓库；本地首次提交、远端地址和公开范围由你确认。可保留插件现有的 @local 包名，不必申请 npm scope；但与接收者已有同名插件可能冲突。
 2. 仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。本流程使用默认的 github.io 项目站点地址，不自动适配自定义域名。
 3. 确认仓库允许工作流写入 Releases、部署 Pages；若 github-pages 环境有限制，允许发布标签 plugins-v* 部署。组织策略可能需要管理员调整。
-4. 公开前检查整个 Git 仓库和历史中没有密钥、个人配置、OAuth 令牌或日志，并确定代码许可。根目录未擅自给全部插件选择开源许可证；Git 工作台和侧边聊天已有 MIT 声明，其他插件请作者明确许可。[忽略规则](<.gitignore>) 只能防止新的误提交，不能清除历史秘密；已暴露凭据需要轮换。
+4. 公开前检查整个 Git 仓库和历史中没有密钥、个人配置、OAuth 令牌或日志，并确定代码许可。原创代码许可见根目录 [MIT License](<LICENSE>)；打包的第三方组件继续遵守其各自许可证，不能据此将第三方代码一并改授 MIT。[忽略规则](<.gitignore>) 只能防止新的误提交，不能清除历史秘密；已暴露凭据需要轮换。
 
 工作流只使用 GitHub 自动提供的 GITHUB_TOKEN，不要求额外配置个人访问令牌。
 
@@ -82,6 +90,7 @@ pnpm --dir dsh-side-chat install --frozen-lockfile --ignore-scripts
 pnpm --dir dsh-auto-review-codex-compat install --frozen-lockfile --ignore-scripts
 pnpm --dir dsh-diagrams install --frozen-lockfile --ignore-scripts
 pnpm --dir dsh-next-input install --frozen-lockfile --ignore-scripts
+pnpm --dir dsh-git-prompts install --frozen-lockfile --ignore-scripts
 pnpm build
 pnpm check
 pnpm test
@@ -91,11 +100,11 @@ Git 工作台没有额外依赖。开发依赖安装不执行生命周期脚本�
 
 请将构建后的 [侧边聊天产物](<dsh-side-chat/client.bundle.js>)、[Mermaid 图表产物](<dsh-diagrams/client.bundle.js>) 和 [输入建议产物](<dsh-next-input/client.bundle.js>) 与源码一起提交：索引从 Git 子目录安装，不保证自动执行构建脚本。两个工作流都会安装锁定的开发依赖，并拒绝客户端产物与源码不一致的提交。
 
-发布前须确认代码已提交、已推送，且检查通过。本次使用新的集合标签 plugins-v1.2.0，不能复用或移动旧标签：
+发布前须确认代码已提交、已推送，且检查通过。本次使用新的集合标签 plugins-v1.3.0，不能复用或移动旧标签：
 
 ```sh
-git tag plugins-v1.2.0
-git push origin plugins-v1.2.0
+git tag plugins-v1.3.0
+git push origin plugins-v1.3.0
 ```
 
 该标签是本插件集合的一次发布编号，独立于每个插件自身版本。后续发版需提升已变更插件自己的版本，并使用新的集合标签；不要移动旧标签或重用已发布插件版本。
@@ -107,7 +116,7 @@ git push origin plugins-v1.2.0
 本机也可只生成产物（不会上传）：
 
 ```sh
-pnpm release:prepare --repo liang2h/deepseek-diy --tag plugins-v1.2.0 --commit 完整40位提交SHA
+pnpm release:prepare --repo liang2h/deepseek-diy --tag plugins-v1.3.0 --commit 完整40位提交SHA
 ```
 
 产物位于 dist/release，索引站点位于 dist/site，均被 Git 忽略。具体参数校验、索引生成及包资源检查见 [发布逻辑](<scripts/release-lib.mjs>) 和 [发布入口](<scripts/prepare-release.mjs>)。
