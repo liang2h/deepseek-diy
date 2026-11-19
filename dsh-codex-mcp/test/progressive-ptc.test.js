@@ -8,7 +8,7 @@ import {configDigest, publicToolName} from '../config.js';
 import {saveTrust} from '../project.js';
 import * as plugin from '../index.js';
 
-// One coherent exact-rc.3 npm dependency graph. This deliberately does not use
+// One coherent exact-rc.5 npm dependency graph. This deliberately does not use
 // Desktop's ASAR, profile, an account adapter, credentials-local or real config.
 const requireRuntime = createRequire(import.meta.resolve('@deepseek-ai/dsh-agent-loop'));
 const load = name => import(requireRuntime.resolve(name));

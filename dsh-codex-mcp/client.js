@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
     }
     const ours = row => row?.name === NAME && row.hint === HINT && row.description === DESCRIPTION;
     /**
-     * Compatibility adapter verified on DSH 0.2.2-rc.3, NOT a native row-decoration API.
+     * Compatibility adapter rechecked on DSH 0.2.2-rc.5, NOT a native row-decoration API.
      * Host commands, input claims, dispatch, authority and command logs stay native.
      * Only replace this row's returned presentation; never read live/directory/DOM.
      */

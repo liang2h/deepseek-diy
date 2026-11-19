@@ -1,9 +1,9 @@
 {
   "name": "@local/dsh-codex-mcp",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "private": true,
   "engines": {
-    "dsh": "0.2.2-rc.3"
+    "dsh": "0.2.2-rc.5"
   },
   "description": "Project-scoped Codex MCP configuration, isolated tools and OAuth sign-in for DSH.",
   "type": "module",
@@ -31,10 +31,10 @@
     "zod": "4.6.7"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-credentials": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-mcp-client": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-scope": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-subprocess": "0.2.2-rc.3"
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-mcp-client": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-scope": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-subprocess": "0.2.2-rc.5"
   },
   "dsh": {
     "bundle": {
@@ -50,13 +50,13 @@
     }
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-agent-loop": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-credentials-local": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-llm-deepseek": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-tool-executor-native": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-tool-executor-ptc": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-ptc-runtime-node": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-subprocess-local": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-sandbox-local": "0.2.2-rc.3"
+    "@deepseek-ai/dsh-agent-loop": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-credentials-local": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-llm-deepseek": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-tool-executor-native": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-tool-executor-ptc": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-ptc-runtime-node": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-subprocess-local": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-sandbox-local": "0.2.2-rc.5"
   }
 }

@@ -1,6 +1,6 @@
 # Codex 项目 MCP
 
-独立 DSH 插件（Host 业务逻辑 + 轻量 Client 菜单显示层）：读取当前项目的 `.codex/config.toml`，为每个 Agent 建立独立 MCP 连接，支持 stdio、Streamable HTTP、OAuth、原始工具名白名单及逐工具审批。当前 1.2.3 针对 DSH **0.2.2-rc.3** 和 MCP Client SDK **2.2.0** 开发验证；不修改 DSH 核心文件或 agent preset；菜单显示采用下述限定版本兼容适配。
+独立 DSH 插件（Host 业务逻辑 + 轻量 Client 菜单显示层）：读取当前项目的 `.codex/config.toml`，为每个 Agent 建立独立 MCP 连接，支持 stdio、Streamable HTTP、OAuth、原始工具名白名单及逐工具审批。当前 1.2.4 针对 Desktop DSH **0.2.2-rc.5** 和 MCP Client SDK **2.2.0** 开发验证；不修改 DSH 核心文件或 agent preset；菜单显示采用下述限定版本兼容适配。
 
 ## 首次使用
 
@@ -80,7 +80,7 @@ Client 为原有菜单行补充单色连接图标、中文标题“项目 MCP”
 
 **保留全部带参数命令。** Host 注册、input hint、参数解析、执行 handler 和人类授权边界均不改变，`/codex-mcp login agentlens` 等原有用法照常。不会注册第二个同名 Client 命令、添加重复候选或替换输入 source。
 
-侧边聊天确实通过原生 Client contribution 实现了同类展示，不需要改 DSH 核心；此前将第三方完整样式归结为必须修改框架，是过于绝对的判断。但该方式不能与同名 Host 参数命令直接并存。本版本按用户要求保留 Host 参数入口，采用**已重新核验 DSH 0.2.2-rc.3 的 Client 兼容适配**：封装当前实现的候选生成函数，只为 name、hint、description 均匹配的本插件行补充展示字段。它不是官方稳定的 Host 行装饰 API，升级 DSH 后须重新核验；没有修改核心文件、私有目录/注册表、参数 claim 或执行路径。
+侧边聊天确实通过原生 Client contribution 实现了同类展示，不需要改 DSH 核心；此前将第三方完整样式归结为必须修改框架，是过于绝对的判断。但该方式不能与同名 Host 参数命令直接并存。本版本按用户要求保留 Host 参数入口，采用**已重新核验 DSH 0.2.2-rc.5 的 Client 兼容适配**：封装当前实现的候选生成函数，只为 name、hint、description 均匹配的本插件行补充展示字段。它不是官方稳定的 Host 行装饰 API，升级 DSH 后须重新核验；没有修改核心文件、私有目录/注册表、参数 claim 或执行路径。
 
 适配失败、接口不匹配或属性不可配置时，保留原生行和原有命令功能；其他行的对象与顺序不变，不新增 RPC、不重新查询。中文标题仅用于展示，搜索仍沿用原命令名和原生筛选/排序，未新增中文命令别名。正常卸载恢复原方法和词典，进行中的请求卸载后不再装饰；若之后有第三方另行包装相同方法，本插件仅将自身层失活，不强行拆除对方包装。
 
@@ -158,7 +158,7 @@ enabled_tools = ["upstream__example_read"]
 
 修复 `stage=credential_write, reason=credential_store` 的一项已复现原因：官方 SDK 的 discovery state 等 JS 对象允许可选字段显式为 `undefined`，但 DSH 文件凭据存储要求 payload 无损 JSON 往返。插件现在在每个 OAuth 记录写入边界递归省略对象中的 `undefined` 可选字段，同时保留 issuer、客户端信息和 token 数据；不将不合法数字、类实例、循环或数组中的 `undefined` 静默改成其他值。
 
-回归测试使用真实 `@deepseek-ai/dsh-credentials-local@0.2.2-rc.3` 与隔离临时文件，覆盖发现/无 scope 认证挑战的登录记录保存，以及官方 SDK 授权码交换、刷新、重新打开存储和退出。旧内存测试也增加了严格 JSON 往返校验。不会读取或清空用户真实凭据。此修复不保证其他磁盘权限或 I/O 问题也已排除。
+回归测试使用真实 `@deepseek-ai/dsh-credentials-local@0.2.2-rc.5` 与隔离临时文件，覆盖发现/无 scope 认证挑战的登录记录保存，以及官方 SDK 授权码交换、刷新、重新打开存储和退出。旧内存测试也增加了严格 JSON 往返校验。不会读取或清空用户真实凭据。此修复不保证其他磁盘权限或 I/O 问题也已排除。
 
 ## 范围与验证边界
 
@@ -223,8 +223,17 @@ pnpm test
 - 完整回归 **185/185 通过、0 跳过**，240 工具首轮测量仍为 1 个管理 Schema / HTTP JSON 1425 字节。PTC 测试保留真实只读系统沙箱；若外层沙箱禁止嵌套 Seatbelt，须在明确授权后从外层沙箱之外运行同一测试，不能降级或把 `sandbox-unavailable` 当作通过。
 - **PTC 使用顺序**：第一步调用 `tools.codex_mcp({action:'load',names:[目录返回的实际 name]})` 并结束当前模型工具步骤；下一模型步骤再访问全局 `tools[实际 name](参数)`。同一 `run_code`，乃至同一模型步骤内的多个 `run_code`，都不会临时扩容已固定的工具集合。不要猜名称或缓存旧 `tools` 对象。
 
+### 1.2.4：Desktop DSH 0.2.2-rc.5 兼容迁移
+
+- **起点有实证，不只来自版本范围。** 升级前 1.2.3 的锁文件与实际解析包均为 DSH 0.2.2-rc.3，未修改源码的完整基线回归为 **185/185 通过、0 跳过**；此前 rc.3 迁移及 PTC 修复记录见上文。当前 Desktop 安装通过其 Electron/ASAR 运行时确认是 **0.2.2-rc.5**。
+- 所有 DSH peer/dev 依赖、锁文件与精确 `engines.dsh` 同步为 rc.5；[兼容性测试](<test/compatibility.test.js>) 递归校验实际解析到的 **43 个 DSH 包实例**（含传递 peer），防止在旧依赖上测试新版声明。19 个实际测试用 DSH 入口与当前 Desktop ASAR 中对应入口的 SHA-256 全部相同。MCP Client SDK 保持 2.2.0，不放宽到未来版本或使用运行时版本豁免。
+- 已检查当前安装的升级索引和相邻 rc.3、rc.4 指南：rc.3 的 `MALFORMED_RESPONSE` → `CONTENT_REFUSED` 只影响 DeepSeek 拒答分类，本插件不分类 LLM 失败错误码；rc.4 的 DeepSeek 网页搜索默认路由只影响 `web.searchProvider`/搜索提供方，本插件不注册或调用这些表面，因此均无需业务迁移。不重复套用起点之前的指南。
+- 通过 live Host Inspect 核对 `tools.register/resolve/executable`、`output.presentationMeta`、`sessionProjections.register/stateOf/checkpoint`、credentials 事务、subprocess、文件系统、Host 参数命令及生命周期/审批事件。Target Client 的候选原型方法、原生 source 转发和行字段在 ASAR 源码及实际 built 产物中仍匹配；现有受控展示适配保留，不改图标、参数认领或 dispatch。Client Inspect 本轮未得到 `commandUi` 精确契约，静态核对不等于 live 菜单或视觉验收。
+- 目标版完整回归 **187/187 通过、0 跳过**。新增真实 rc.5 ToolsService 异步条件撤销/取消测试：撤下的世代不得被晚到结果复活，取消不得发布部分可调用集合。既有真实 PTC 子进程仍使用只读 OS 沙箱；Native/PTC 渐进加载、撤权、恢复/fork、OAuth/隔离文件凭据和参数菜单测试全部保留。240 工具 fixture 的三个更新模式首轮仍为 **1 个管理 Schema / HTTP JSON 1425 字节**。
+- 未发现需要修改生产业务逻辑的目标 API 破坏点；激活投影保持 `stateVersion: 4`，信任及 OAuth 记录格式不变，不迁移或删除真实配置、Session 日志或凭据。依赖安装使用 `--ignore-scripts`，未批准新的构建脚本；项目内 pnpm 发布等待例外仅精确列出测试目标 rc.5，不修改 profile 的安全设置。真实账户登录、外部服务和菜单视觉效果仍待单独授权验收。
+
 ### 安装升级
 
-仅通过 Plugin Manager 安装/升级本地目录或版本化 tarball，不手改活动 profile、核心文件或已安装模块。本次发布为 1.2.3；以管理器返回的保存状态、`application` 和 `nextStep` 区分“安装完成”与“当前进程已加载”。替换已导入的 Host 模块通常需要**完整退出并重开 DSH**，刷新网页或 `/codex-mcp reload` 不能清除 Node 模块缓存。旧会话历史不会因重启自动变小，请在新会话中验收首轮。
+仅通过 Plugin Manager 安装/升级本地目录或版本化 tarball，不手改活动 profile、核心文件或已安装模块。本次发布为 1.2.4；以管理器返回的保存状态、`application` 和 `nextStep` 区分“安装完成”与“当前进程已加载”。替换已导入的 Host 模块通常需要**完整退出并重开 DSH**，刷新网页或 `/codex-mcp reload` 不能清除 Node 模块缓存。旧会话历史不会因重启自动变小，请在新会话中验收首轮。
 
 图标为本插件原创 SVG；中英文插件标题/说明由 [中文资源](<locale/zh.json>) 和 [英文资源](<locale/en.json>) 提供。
