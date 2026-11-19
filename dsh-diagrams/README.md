@@ -1,6 +1,6 @@
 # 图表可视化 / Diagram viewer
 
-为 **DSH 0.2.2-rc.3** 开发的独立插件，把聊天里的 Mermaid 代码块显示为矢量图，不修改 DSH 安装文件或会话正文。
+适配 **Desktop DSH 0.2.2-rc.5** 的独立插件，把聊天里的 Mermaid 代码块显示为矢量图，不修改 DSH 安装文件或会话正文。
 
 ## 使用
 
@@ -39,6 +39,14 @@ sequenceDiagram
 
 当前验证范围以本次开发报告为准。没有连接页面控制工具时，构建和原生扩展点注册验证不能代替实际视觉验收。
 
+## 1.0.1 兼容性验证
+
+- 精确声明 `engines.dsh: 0.2.2-rc.5`。原来的 `0.2.2-rc.3` 精确约束会阻止目标 Desktop 激活；并非通过扩大范围或版本豁免来绕过检查。
+- 已核对目标安装的 Chat `conversation.chat.markdown.fence`（`hoc` / `session`、`key` / `id` / `order`、`code` / `streaming` / `children`）、Client locale（`register` / `bind` / `subscribe` / `getSnapshot`）及 theme（`getTheme`、`active.colorScheme`、`theme/change`）契约，无需更换扩展点。原有 Host `apply` 不写入会话或设置。
+- 已核对安装版升级索引：离开 rc.3 的拒答错误码变更和离开 rc.4 的 DeepSeek 网页搜索默认提供方变更均不涉及本插件使用的 API，因此无对应迁移。
+- 新增契约回归测试覆盖双语言注册、版本化 slot ID、卸载清理、主题/语言订阅，以及流式输出保留原始代码。该测试使用 API 桩，不是浏览器渲染或视觉验收；原有源码安全策略与图表视觉保持不变。
+- 安装后的 live slot 注册、图表布局、主题切换和中英文详情页仍需在当前 DSH 页面验收；本目录的单元测试和构建不能代替这一步。
+
 ## 开发
 
 在仓库根目录使用 Node.js 24+ 和 pnpm 11：
@@ -51,4 +59,4 @@ pnpm --dir dsh-diagrams test
 
 [客户端产物](<client.bundle.js>)应与源码一起分发。无安装脚本及生产运行依赖；第三方代码已打包，许可证原文及源码获取声明见 [THIRD_PARTY_NOTICES.md](<THIRD_PARTY_NOTICES.md>)。其中 ELK/elkjs 0.12.1 的对应源码和构建脚本可从 [elkjs 0.12.1](https://github.com/kieler/elkjs/tree/624ae90aa37110033a8af59c5ccbb292708b4317) 与 [ELK v0.12.1](https://github.com/eclipse-elk/elk/tree/3aa3b9fb98d8f9a41285b3061cff5efe79ed2ba4) 获取；各第三方组件的许可证仅适用于其各自代码。
 
-在 DSH 的插件安装入口选择本目录，或让智能体调用 `plugin_manager install_bundle` 安装绝对路径。安装影响当前 profile 的全部会话；以管理器的 `application` 和 `warnings` 为准，必要时刷新或重启。发布渠道为 [plugins-v1.2.0](https://github.com/liang2h/deepseek-diy/releases/tag/plugins-v1.2.0)；对应工作流成功后，可下载安装包或从[插件索引](https://liang2h.github.io/deepseek-diy/index.json)安装。
+在 DSH 的插件安装入口选择本目录，或让智能体调用 `plugin_manager install_bundle` 安装绝对路径。安装影响当前 profile 的全部会话；以管理器的 `application` 和 `warnings` 为准，必要时刷新或重启。发布渠道为 [plugins-v1.3.1](https://github.com/liang2h/deepseek-diy/releases/tag/plugins-v1.3.1)；对应工作流成功后，可下载安装包或从[插件索引](https://liang2h.github.io/deepseek-diy/index.json)安装。

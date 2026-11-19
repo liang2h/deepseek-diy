@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Diagram viewer",
-    "description": "Turns mermaid and mmd code fences in chat into clearly structured Mermaid diagrams. Supports sequence diagrams, flowcharts and other Mermaid types, with source switching, zoom, fit-to-width and expanded reading. Follows light and dark themes. Preserves source while streaming and on errors, with retry feedback. Renders in the local page without an external chart service; ignores embedded theme configuration and disables external images, links and callbacks. Compatible with DSH 0.2.2-rc.3."
+    "description": "Turns mermaid and mmd code fences in chat into clearly structured Mermaid diagrams. Supports sequence diagrams, flowcharts and other Mermaid types, with source switching, zoom, fit-to-width and expanded reading. Follows light and dark themes. Preserves source while streaming and on errors, with retry feedback. Renders in the local page without an external chart service; ignores embedded theme configuration and disables external images, links and callbacks. Compatible with DSH 0.2.2-rc.5."
   },
   "ui": {
     "diagram": "Diagram", "source": "Source", "fit": "Fit", "fitTitle": "Fit to width", "zoomIn": "Zoom in", "zoomOut": "Zoom out", "reset": "Reset to 100%", "expand": "Expand", "collapse": "Collapse", "retry": "Retry",

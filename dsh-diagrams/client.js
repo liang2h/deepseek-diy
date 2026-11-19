@@ -2,9 +2,10 @@ import {clampZoom, fitScale, diagramKind, formatZoom} from './diagram.js';
 import {css} from './styles.js';
 import zh from './locale/zh.json';
 import en from './locale/en.json';
+import {name as packageName, version} from './package.json';
 
 window.__ModuleLoader__.load({
-  id: '@local/dsh-diagrams',
+  id: packageName,
   factory(require) {
     const React = require('react');
     const h = React.createElement;
@@ -12,7 +13,7 @@ window.__ModuleLoader__.load({
     return {
       inject: ['slots', 'locale', 'theme'],
       apply(ctx) {
-        const namespace = '@local/dsh-diagrams';
+        const namespace = packageName;
         ctx.effect(() => ctx.locale.register(namespace, {zh: zh.ui, en: en.ui}));
         const t = ctx.locale.bind(namespace);
         ctx.effect(() => {
@@ -111,7 +112,7 @@ window.__ModuleLoader__.load({
 
         ctx.slots.inject('conversation.chat.markdown.fence', () => {
           const disposers = ['mermaid', 'mmd'].map(key => ctx.slots.register({
-            name: 'conversation.chat.markdown.fence', id: '@local/dsh-diagrams/1.0.0/' + key, key, order: 10,
+            name: 'conversation.chat.markdown.fence', id: namespace + '/' + version + '/' + key, key, order: 10,
           }, DiagramFence));
           return () => disposers.forEach(dispose => dispose());
         });

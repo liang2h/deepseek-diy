@@ -76,8 +76,16 @@ test('metadata and UI are bilingual and exports include distributable runtime', 
   const zh = JSON.parse(await readFile(new URL('locale/zh.json', root)));
   const en = JSON.parse(await readFile(new URL('locale/en.json', root)));
   assert.deepEqual(Object.keys(zh.ui).sort(), Object.keys(en.ui).sort());
-  assert.equal(manifest.engines.dsh, '0.2.2-rc.3');
+  assert.equal(manifest.version, '1.0.1');
+  assert.equal(manifest.engines.dsh, '0.2.2-rc.5');
+  assert.ok(zh.meta.description.includes('0.2.2-rc.5'));
+  assert.ok(en.meta.description.includes('0.2.2-rc.5'));
   assert.equal(manifest.exports['./client'], './client.bundle.js');
+  assert.equal(manifest.exports['./locale/*.json'], './locale/*.json');
+  assert.equal(manifest.exports['./icon'], './icon.svg');
+  assert.ok(manifest.files.includes('locale/*.json'));
+  assert.equal(zh.meta.detail, undefined, 'uses the existing README detail fallback');
+  assert.equal(en.meta.detail, undefined, 'uses the existing README detail fallback');
   for (const path of ['index.js', 'client.js', 'renderer.js', 'diagram.js', 'styles.js', 'client.bundle.js', 'cordis.patch.yml', 'README.md', 'THIRD_PARTY_NOTICES.md', 'icon.svg']) {
     assert.ok(manifest.files.includes(path), path);
     assert.ok((await readFile(new URL(path, root))).length > 0, path);
