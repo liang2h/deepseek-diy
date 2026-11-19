@@ -82,10 +82,10 @@ test('receiver dispatch exceptions are not changed into approval or a retry', ()
   assert.equal(calls, 1);
 });
 
-test('packaging exports an original bounded icon and bilingual description; all DSH test versions match rc.3', async () => {
+test('packaging exports an original bounded icon and bilingual description; all DSH test versions match rc.5', async () => {
   const root = new URL('..', import.meta.url);
   const manifest = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
-  assert.equal(manifest.engines.dsh, '0.2.2-rc.3');
+  assert.equal(manifest.engines.dsh, '0.2.2-rc.5');
   for (const [name, spec] of Object.entries({...manifest.peerDependencies, ...manifest.devDependencies})) {
     if (name.startsWith('@deepseek-ai/dsh-')) {
       assert.equal(spec, manifest.engines.dsh);

@@ -1,10 +1,10 @@
 # 自动审查参数兼容
 
-独立 Host 插件，当前 **1.1.0**，验证环境 DSH **0.2.2-rc.3**。为直接升级已有安装，保留包名 `@local/dsh-auto-review-codex-compat` 与原 Loader row ID；**当前功能不限于 Codex**，不会并装第二个兼容层。
+独立 Host 插件，当前 **1.1.1**，验证环境 DSH **0.2.2-rc.5**。为直接升级已有安装，保留包名 `@local/dsh-auto-review-codex-compat` 与原 Loader row ID；**当前功能不限于 Codex**，不会并装第二个兼容层。
 
 ## 根因与本次纠正
 
-rc.3 内置自动审查器在所有审查请求中固定设置 `temperature: 0`。这错误地假定所有 provider、协议和模型都支持显式温度参数；实际上 Codex 和部分 OpenAI API 推理模型都会拒绝它，自定义 provider 名称也不能代表参数能力。
+rc.3 以及当前 rc.5 内置自动审查器在所有审查请求中固定设置 `temperature: 0`。这错误地假定所有 provider、协议和模型都支持显式温度参数；实际上 Codex 和部分 OpenAI API 推理模型都会拒绝它，自定义 provider 名称也不能代表参数能力。
 
 **1.0.0 的 provider 白名单修复不完整**：默认只匹配 `openai-codex`，其他路由仍发送固定温度。本版删除运行时的 provider/model 匹配，将兼容规则统一放在 `purpose === 'auto-review'` 的辅助请求边界，在发送前省略合法温度字段。它不靠模型名字、协议猜测、遇到 HTTP 400 后重试或逐个补别名。
 
@@ -34,7 +34,7 @@ pnpm install --ignore-scripts
 pnpm test
 ```
 
-依赖固定到 DSH rc.3；PI SDK 1.3.0 / 其 OpenAI SDK 7.19.0。仅合成数据，未读取真实账号凭据、真实业务仓库或调用云接口：
+运行及测试依赖固定到 DSH rc.5；PI SDK 1.3.0 / 其 OpenAI SDK 7.19.0。仅合成数据，未读取真实账号凭据、真实业务仓库或调用云接口：
 
 - [真实审查门禁测试](<test/auto-review.test.js>)：未修改的 Auto review、AgentLoop、LlmRuntime、NativeExecutor、Approval 和 PermissionPresets，模型 adapter 与工作目录事实用替身。7 路由含标准 Codex、OpenAI、Responses、自定义/未知别名及支持温度的模型；旧 `providers: ['openai-codex']` 无法阻止其他路由修复。Codex/OpenAI/不透明别名分别复测全部 11 条门禁路径，保持严格解析、原上下文引用、单次审查/执行、deny+ask 人工拒绝审计、deny+never、下游 veto、模型异常/取消/非法 JSON 仍阻断。卸载恢复原参数行为。
 - [请求级单元测试](<test/compatibility.test.js>)：所有路由同一规则、0/0.5/1/2、loop 身份保护、其他 purpose 精确不变、无效温度不合法化、this 上下文、字段引用、异常原样传播和发布资源。
@@ -43,6 +43,14 @@ pnpm test
 完整回归 **53/53 通过，0 跳过**。针对本次新增的真实门禁测试，旧 1.0.0 取得 RED：40 项中 12 通过、28 因温度仍存在失败；新实现 GREEN：40/40。历史 1.0.0 的 18 项测试没有覆盖跨 provider 缺陷，不能证明通用兼容。
 
 PTC 复用同一个审查分类器，但本包没有另启 PTC 子进程的完整门禁端到端测试。真实 OpenAI/Codex 云端、原云效业务及 GUI 图标渲染未代替用户执行，均不据本地结果声称成功。
+
+## 1.1.1 / DSH rc.5 兼容性核查
+
+- 将 `engines.dsh`、DSH peer 和测试依赖精确迁移到 `0.2.2-rc.5`，同步锁文件；不扩大到未经测试的未来版本，不使用运行时版本豁免。
+- 通过当前 Host Inspect 核对 `llm/stream` waterfall 的 `this: LlmRuntime`、`next()` 和 `stream()` 契约；rc.5 内置审查器仍构造冻结的 `purpose: 'auto-review', temperature: 0` 请求，因此保留现有最小参数修正，不改权限判决代码。
+- 测试所用 rc.5 npm 包的 LLM、Auto review、AgentLoop、NativeExecutor 入口与当前 Desktop ASAR 入口逐一 SHA-256 一致；PI SDK 仍为 `1.3.0`。
+- 对照本机[升级索引](</Applications/DeepSeek Harness.app/Contents/Resources/app.asar/dsh/node_modules/@deepseek-ai/dsh/docs/upgrade-guide/README.md#L7-L17>)检查 rc.3→rc.4 的 DeepSeek 拒答错误码变更、rc.4→rc.5 的网页搜索默认提供方变更。本包既不匹配该错误码，也不注册搜索提供方，因此无需对应代码迁移；两项均按不影响本包跳过，未借用旧版 API 推断兼容。
+- 保留既有原创图标、中英文标题、Loader row ID 和旧 Config 迁移支持。未修改 ASAR、活动 profile 或用户访问模式；安装一律交给 Plugin Manager。
 
 ## 安装与升级
 

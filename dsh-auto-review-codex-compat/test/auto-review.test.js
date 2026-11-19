@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import * as compatibility from '../index.js';
 
-// One coherent npm-installed rc.3 graph, never the running Desktop's ASAR,
+// One coherent npm-installed rc.5 graph, never the running Desktop's ASAR,
 // account plugins, credentials, user profile, filesystem tools, or MCP config.
 const requireRuntime = createRequire(import.meta.resolve('@deepseek-ai/dsh-agent-loop'));
 const load = name => import(requireRuntime.resolve(name));
@@ -163,13 +163,13 @@ async function harness(t, {fixed = true, approvalPolicy = 'ask', answer = 'rejec
       assert.equal(request.model, model, 'main request must keep its original model alias');
       assert.equal(request.sessionId, agent.session.id);
       assert.equal(request.maxTokens, 1234, 'native frozen AgentLoop controls must remain untouched');
-      assert.equal(Object.hasOwn(request, 'temperature'), false, 'rc.3 AgentOptions does not expose temperature');
+      assert.equal(Object.hasOwn(request, 'temperature'), false, 'rc.5 AgentOptions does not expose temperature');
     }
     const [request] = reviews;
     const sourceRequest = reviewIngress[reviewIngressStart];
     assert.ok(sourceRequest, 'the shipped AutoReview plugin must construct the original review');
     assert.equal(Object.isFrozen(sourceRequest), true);
-    assert.equal(sourceRequest.temperature, 0, 'the actual rc.3 reviewer supplies temperature: 0');
+    assert.equal(sourceRequest.temperature, 0, 'the actual rc.5 reviewer supplies temperature: 0');
     // Only the temperature member may change. In particular, retain the policy,
     // immutable history, cancellation signal, tools, and any other reference by identity.
     assert.deepEqual(Reflect.ownKeys(request).filter(key => key !== 'temperature'),
