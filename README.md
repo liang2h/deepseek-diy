@@ -2,21 +2,26 @@
 
 独立的 DeepSeek Harness（DSH）插件集合。GitHub 公开仓库发布后，支持 **分享插件索引** 和 **分享单个安装包 URL**，不需要接收者克隆源码、自己编译，也不需要发布到 npm。
 
-> 代码仓库：[liang2h/deepseek-diy](https://github.com/liang2h/deepseek-diy)。下列索引和安装包链接在相应 GitHub Actions 发布成功后生效；本次集合标签为 plugins-v1.3.0，包含 8 个插件。旧版 plugins-v1.0.0、plugins-v1.1.0、plugins-v1.2.0 的标签和资产保持可用。
+> 代码仓库：[liang2h/deepseek-diy](https://github.com/liang2h/deepseek-diy)。下列索引和安装包链接在相应 GitHub Actions 发布成功后生效；本次集合标签为 plugins-v1.3.1，包含 8 个插件。旧版 plugins-v1.0.0、plugins-v1.1.0、plugins-v1.2.0、plugins-v1.3.0 的标签和资产保持可用。
 
 ## 插件
 
 | 插件 | 当前版本 | 使用说明 |
 | --- | --- | --- |
-| Codex 项目 MCP | 1.2.3 | [项目级 MCP 配置、按需工具与 OAuth](<dsh-codex-mcp/README.md>) |
+| Codex 项目 MCP | 1.2.4 | [项目级 MCP 配置、按需工具与 OAuth](<dsh-codex-mcp/README.md>) |
 | Git 工作台 | 1.0.5 | [右侧栏 Git 管理](<dsh-git-manager/README.md>) |
 | 个性化 | 1.0.0 | [当前 profile 的统一个性化指令](<dsh-personalization/README.md>) |
 | 侧边聊天 | 2.2.0 | [继承主会话上下文的私有问答](<dsh-side-chat/README.md>) |
 | 下一轮输入建议 | 1.0.5 | [有明确缺口时自动显示下一轮建议，点击填入但不发送](<dsh-next-input/README.md>) |
-| Mermaid 图表 | 1.0.0 | [聊天中的 Mermaid 图表可视化](<dsh-diagrams/README.md>) |
-| 自动审查参数兼容 | 1.1.0 | [省略所有审查路由的强制 temperature，保留权限门禁](<dsh-auto-review-codex-compat/README.md>) |
-
+| Mermaid 图表 | 1.0.1 | [聊天中的 Mermaid 图表可视化](<dsh-diagrams/README.md>) |
+| 自动审查参数兼容 | 1.1.1 | [省略所有审查路由的强制 temperature，保留权限门禁](<dsh-auto-review-codex-compat/README.md>) |
 | Git 操作指令 | 1.0.3 | [按需加载提交与 PR 规则，不常驻系统提示词](<dsh-git-prompts/README.md>) |
+
+## plugins-v1.3.1 更新
+
+- Codex 项目 MCP 1.2.4 与自动审查参数兼容 1.1.1：将 DSH peer、测试运行时和可达依赖图精确锁定到 rc.5，复验渐进加载、PTC 与审查门禁；不修改现有授权策略。
+- Mermaid 图表 1.0.1：精确适配 rc.5，模块与 slot ID 跟随包名/版本，并增加卸载、主题/语言及流式回退契约测试；该 API 桩测试不是浏览器视觉验收。
+- 集合仍包含 8 个插件。三项升级明确要求 DSH 0.2.2-rc.5；rc.3 用户应继续使用 [plugins-v1.3.0](https://github.com/liang2h/deepseek-diy/releases/tag/plugins-v1.3.0) 中对应旧安装包，不应忽略引擎限制。
 
 ## plugins-v1.3.0 更新
 
@@ -32,7 +37,7 @@
 
 下一轮输入建议只填入草稿、不自动发送；本地规则以外的辅助模型判断可能产生额外费用。SDK 契约、构建和打包检查不等于真实 GUI 或云端业务验收。
 
-Codex MCP 1.2.3、自动审查参数兼容插件 1.1.0 和 Mermaid 图表 1.0.0 明确适配 **DSH 0.2.2-rc.3**。下一轮输入建议声明 >=0.2.2-rc.3 <0.3.0，但当前契约验证固定在 rc.3；其他版本及其他插件请查阅各自说明，不能据此保证任意新旧 DSH 版本兼容。
+Codex MCP 1.2.4、自动审查参数兼容插件 1.1.1 和 Mermaid 图表 1.0.1 明确适配 **DSH 0.2.2-rc.5**。下一轮输入建议声明 >=0.2.2-rc.3 <0.3.0，但当前契约验证固定在 rc.3；其他版本及其他插件请查阅各自说明，不能据此保证任意新旧 DSH 版本兼容。
 
 ## 如何分享给其他人
 
@@ -59,7 +64,7 @@ https://liang2h.github.io/deepseek-diy/index.json
 不启用“发现”也可以使用 Release 安装包，例如：
 
 ```text
-https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.3.0/dsh-codex-mcp-1.2.3.tgz
+https://github.com/liang2h/deepseek-diy/releases/download/plugins-v1.3.1/dsh-codex-mcp-1.2.4.tgz
 ```
 
 接收者在 DSH 的插件安装入口粘贴该 URL，或向智能体发送：
@@ -100,11 +105,11 @@ Git 工作台没有额外依赖。开发依赖安装不执行生命周期脚本�
 
 请将构建后的 [侧边聊天产物](<dsh-side-chat/client.bundle.js>)、[Mermaid 图表产物](<dsh-diagrams/client.bundle.js>) 和 [输入建议产物](<dsh-next-input/client.bundle.js>) 与源码一起提交：索引从 Git 子目录安装，不保证自动执行构建脚本。两个工作流都会安装锁定的开发依赖，并拒绝客户端产物与源码不一致的提交。
 
-发布前须确认代码已提交、已推送，且检查通过。本次使用新的集合标签 plugins-v1.3.0，不能复用或移动旧标签：
+发布前须确认代码已提交、已推送，且检查通过。本次使用新的集合标签 plugins-v1.3.1，不能复用或移动旧标签：
 
 ```sh
-git tag plugins-v1.3.0
-git push origin plugins-v1.3.0
+git tag plugins-v1.3.1
+git push origin plugins-v1.3.1
 ```
 
 该标签是本插件集合的一次发布编号，独立于每个插件自身版本。后续发版需提升已变更插件自己的版本，并使用新的集合标签；不要移动旧标签或重用已发布插件版本。
@@ -116,7 +121,7 @@ git push origin plugins-v1.3.0
 本机也可只生成产物（不会上传）：
 
 ```sh
-pnpm release:prepare --repo liang2h/deepseek-diy --tag plugins-v1.3.0 --commit 完整40位提交SHA
+pnpm release:prepare --repo liang2h/deepseek-diy --tag plugins-v1.3.1 --commit 完整40位提交SHA
 ```
 
 产物位于 dist/release，索引站点位于 dist/site，均被 Git 忽略。具体参数校验、索引生成及包资源检查见 [发布逻辑](<scripts/release-lib.mjs>) 和 [发布入口](<scripts/prepare-release.mjs>)。
